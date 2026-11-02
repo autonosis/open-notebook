@@ -61,9 +61,18 @@ export function VoiceCloningTab() {
       return
     }
     const url = URL.createObjectURL(file)
+    const resource = new URL(url)
+    if (
+      resource.protocol !== 'blob:' ||
+      resource.origin !== window.location.origin
+    ) {
+      URL.revokeObjectURL(url)
+      setError(t('voiceCloning.saveError'))
+      return
+    }
     setSample(url)
     return () => URL.revokeObjectURL(url)
-  }, [file])
+  }, [file, t])
   useEffect(() => {
     if (!recording) return
     const timer = setInterval(
@@ -300,7 +309,12 @@ export function VoiceCloningTab() {
                 {sample && (
                   <audio
                     controls
-                    src={sample}
+                    src={
+                      new URL(sample).protocol === 'blob:' &&
+                      new URL(sample).origin === window.location.origin
+                        ? sample
+                        : undefined
+                    }
                     aria-label={t('voiceCloning.referencePlayback')}
                     className="w-full min-w-0"
                   />

@@ -26,7 +26,15 @@ class VoiceStore:
     def directory(self, voice_id):
         if not re.fullmatch(r"clone_[a-f0-9]{32}", voice_id):
             raise ValueError("Invalid saved voice")
-        return self.root / voice_id
+        if self.root.exists():
+            for candidate in self.root.iterdir():
+                if (
+                    candidate.name == voice_id
+                    and candidate.is_dir()
+                    and not candidate.is_symlink()
+                ):
+                    return candidate
+        raise ValueError("Saved voice was not found")
 
     def get(self, voice_id):
         try:
@@ -77,7 +85,7 @@ class VoiceStore:
             raise ValueError("Upload an audio sample up to 10 MB")
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         voice_id = "clone_" + uuid4().hex
-        directory = self.directory(voice_id)
+        directory = self.root / voice_id
         directory.mkdir(mode=0o700)
         try:
             with tempfile.TemporaryDirectory(dir=self.root) as tmp:

@@ -54,7 +54,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   state.rows = []
   state.save.mockResolvedValue({ name: 'My voice' })
-  URL.createObjectURL = vi.fn(() => 'blob:reference')
+  URL.createObjectURL = vi.fn(() => `blob:${window.location.origin}/reference`)
   URL.revokeObjectURL = vi.fn()
 })
 
@@ -193,4 +193,14 @@ test('recording produces a playable upload and stops all microphone tracks', asy
       file: expect.any(File),
     }),
   )
+})
+
+test('reference playback rejects unexpected non-blob resource URLs', async () => {
+  URL.createObjectURL = vi.fn(() => 'javascript:alert(1)')
+  render(<VoiceCloningTab />)
+  fireEvent.change(screen.getByLabelText('voiceCloning.reference'), {
+    target: { files: [new File(['audio'], 'recording.wav')] },
+  })
+  expect(await screen.findByRole('alert')).toBeTruthy()
+  expect(screen.queryByLabelText('voiceCloning.referencePlayback')).toBeNull()
 })
