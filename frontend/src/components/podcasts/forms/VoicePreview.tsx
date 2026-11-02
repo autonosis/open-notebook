@@ -7,6 +7,20 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from '@/lib/hooks/use-translation'
 
+const voiceLanguages: Record<string, string> = {
+  a: 'voicePreview.americanEnglish', b: 'voicePreview.britishEnglish', z: 'voicePreview.mandarinChinese',
+  j: 'voicePreview.japanese', e: 'voicePreview.spanish', f: 'voicePreview.french', h: 'voicePreview.hindi',
+  i: 'voicePreview.italian', p: 'voicePreview.brazilianPortuguese',
+}
+
+export function voiceLabel(voice: { id: string; name: string }, t: (key: string) => string) {
+  const match = /^([abzjefhip])([fm])_(.+)$/.exec(voice.id)
+  if (!match) return voice.name || voice.id
+  const name = match[3].replace(/^v0(?=[a-z])/, 'v0 ').split(/[_ ]+/)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
+  return `${name} — ${t(voiceLanguages[match[1]])} · ${t(match[2] === 'f' ? 'voicePreview.female' : 'voicePreview.male')}`
+}
+
 export function VoicePreview({ modelId, voiceId, inputId, onVoiceChange }: { modelId: string; voiceId: string; inputId: string; onVoiceChange: (voice: string) => void }) {
   const { t } = useTranslation()
   const [url, setUrl] = useState<string | null>(null)
@@ -50,7 +64,7 @@ export function VoicePreview({ modelId, voiceId, inputId, onVoiceChange }: { mod
       className="h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground disabled:opacity-50">
       <option value="" disabled>{t('voicePreview.chooseVoice')}</option>
       {voiceId && !voices?.some(voice => voice.id === voiceId) && <option value={voiceId}>{voiceId}</option>}
-      {voices?.map(voice => <option key={voice.id} value={voice.id}>{voice.name === voice.id ? voice.id : `${voice.name} (${voice.id})`}</option>)}
+      {voices?.map(voice => <option key={voice.id} value={voice.id}>{voiceLabel(voice, t)}</option>)}
     </select>
     <details className="text-xs text-muted-foreground">
       <summary className="cursor-pointer">{t('voicePreview.customVoice')}</summary>

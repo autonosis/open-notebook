@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Speaker voice dropdowns display readable names, language/accent and gender while preserving provider voice IDs.
 - **Documentation rewritten against the code.** Every page under `docs/` was checked against v1.15.0 and rewritten where it described an older or imagined product (#1458, #1459, #1460, #1461):
   - **Install:** one canonical path built on the shipped `docker-compose.yml`, with small override files for the Ollama and LM Studio variants. The network-exposure warning (bind ports to `127.0.0.1` or set a password) comes before the first `docker compose up -d`. Example encryption keys are generated, never copied. First-run setup lives in one place, [Connect a provider](docs/4-AI-PROVIDERS/index.md#connect-a-provider), and ends in a working chat via **Auto-assign Defaults**. The provider table is built from the provider registry: 24 providers, with the model types each one offers
   - **User guide and concepts:** insights are a first-class concept and the context mode is *Insights only*. Ask is described as three stages. UI labels match the current app. Invented features are gone (tags, export/share, batch transformations, page-number citations and others). About 6,200 lines became about 1,450
