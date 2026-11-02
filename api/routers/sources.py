@@ -1016,6 +1016,10 @@ async def retry_source_processing(source_id: str):
             # Import command modules to ensure they're registered
             import commands.source_commands  # noqa: F401
 
+            # Resume downstream work without regenerating a valid saved index.
+            if source.full_text and await source.get_embedded_chunks():
+                content_state["reuse_extraction"] = True
+
             # Submit new command for background processing
             command_input = SourceProcessingInput(
                 source_id=str(source.id),

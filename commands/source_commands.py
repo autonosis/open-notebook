@@ -76,7 +76,9 @@ async def process_source_command(
     event(
         input_data.source_id,
         "Starting extraction",
-        root_command=str(input_data.execution_context.command_id),
+        root_command=str(input_data.execution_context.command_id)
+        if input_data.execution_context
+        else None,
         started_at=start_time,
         error=None,
         cached_pages=0,
@@ -139,18 +141,33 @@ async def process_source_command(
         # Execute source_graph with all notebooks.
         # LangGraph accepts a partial state dict at runtime, but its typed
         # overloads require the full state type (langgraph typing limitation).
-        result = await source_graph.ainvoke(  # type: ignore[call-overload]
-            {
-                "content_state": input_data.content_state,
-                "notebook_ids": input_data.notebook_ids,  # Use notebook_ids (plural) as expected by SourceState
-                "apply_transformations": transformations,
-                "embed": input_data.embed,
-                "source_id": input_data.source_id,  # Add the source_id to the state
+        if input_data.content_state.get("reuse_extraction") and source.full_text:
+            event(str(source.id), "Resuming pending transformations")
+            existing_titles = {
+                insight.insight_type for insight in await source.get_insights()
             }
-        )
+            for transformation in transformations:
+                if transformation.title in existing_titles:
+                    continue
+                await transform_graph.ainvoke(
+                    dict(source=source, transformation=transformation),
+                    config=RunnableConfig(
+                        configurable={"model_id": transformation.model_id}
+                    ),
+                )
+            processed_source = source
+        else:
+            result = await source_graph.ainvoke(  # type: ignore[call-overload]
+                {
+                    "content_state": input_data.content_state,
+                    "notebook_ids": input_data.notebook_ids,  # Use notebook_ids (plural) as expected by SourceState
+                    "apply_transformations": transformations,
+                    "embed": input_data.embed,
+                    "source_id": input_data.source_id,  # Add the source_id to the state
+                }
+            )
 
-        processed_source = result["source"]
-
+            processed_source = result["source"]
         # 4. Gather processing results (notebook associations handled by source_graph)
         # Note: embedding is fire-and-forget (async job), so we can't query the
         # count here — it hasn't completed yet. The embed_source_command logs
