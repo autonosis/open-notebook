@@ -34,7 +34,7 @@ def read(episode_id):
 
 def _update(episode_id, stage=None, **fields):
     with LOCK:
-        data = read(episode_id)
+        data = {} if fields.pop("reset", False) else read(episode_id)
         now = fields.pop("at", time.time())
         previous = data.get("stage")
         data.update(fields, updated_at=now)

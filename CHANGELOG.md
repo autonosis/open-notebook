@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Podcast transcripts support saved editable drafts and audio-only revised episodes, with unchanged clip reuse, preserved originals, and listening-oriented generation guidance for formulas and acronyms.
 - macOS deployment can serve optional Qwen3-TTS and Chatterbox voices locally through a persistent, authenticated Metal adapter with catalogs, serialized inference and idle unloading; Kokoro remains the default.
 - Speaker voice dropdowns display readable names, language/accent and gender while preserving provider voice IDs.
 - **Documentation rewritten against the code.** Every page under `docs/` was checked against v1.15.0 and rewritten where it described an older or imagined product (#1458, #1459, #1460, #1461):

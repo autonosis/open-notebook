@@ -83,6 +83,7 @@ export interface PodcastPipelineProgress {
   command_id?: string
   sections_done?: number
   sections_total?: number
+  clips_reused?: number
   clips_done?: number
   clips_total?: number
   current_clip?: number

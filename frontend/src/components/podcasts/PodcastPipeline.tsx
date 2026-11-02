@@ -17,7 +17,8 @@ export function PodcastPipeline({ episode }: { episode: PodcastEpisode }) {
         <div><dt className="text-muted-foreground">{t('podcastProgress.stageElapsed')}</dt><dd>{duration(p.stage_elapsed_s)}</dd></div>
         {p.sections_total != null && <div><dt className="text-muted-foreground">{t('podcastProgress.sections')}</dt><dd>{p.sections_done ?? 0} / {p.sections_total}</dd></div>}
         {p.clips_total != null && <div><dt className="text-muted-foreground">{t('podcastProgress.clips')}</dt><dd>{p.clips_done ?? 0} / {p.clips_total}</dd></div>}
-        {p.stage === 'speech' && p.current_clip != null && <div><dt className="text-muted-foreground">{t('podcastProgress.currentClip')}</dt><dd>{p.current_clip}</dd></div>}
+        {p.clips_reused != null && <div><dt className="text-muted-foreground">{t('transcriptEditor.clipsReused')}</dt><dd>{p.clips_reused}</dd></div>}
+        {p.stage === 'speech'  && p.current_clip != null && <div><dt className="text-muted-foreground">{t('podcastProgress.currentClip')}</dt><dd>{p.current_clip}</dd></div>}
         <div><dt className="text-muted-foreground">{t('podcastProgress.updated')}</dt><dd>{new Date(p.updated_at * 1000).toLocaleTimeString()}</dd></div>
       </dl>
       {p.error_type && <p className="text-sm text-destructive">{t('podcastProgress.error')}: {p.error_type}</p>}
