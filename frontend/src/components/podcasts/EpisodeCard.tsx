@@ -1,5 +1,7 @@
 'use client'
 
+import { PodcastPipeline } from './PodcastPipeline'
+
 import { useEffect, useMemo, useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { getDateLocale } from '@/lib/utils/date-locale'
@@ -247,7 +249,7 @@ export function EpisodeCard({ episode, onDelete, deleting, onRetry, retrying }: 
                   <InfoIcon className="mr-2 h-4 w-4" /> {t('podcasts.details')}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="w-[min(90vw,720px)] max-h-[85vh] overflow-hidden">
+              <DialogContent className="flex h-[85dvh] w-[min(90vw,720px)] flex-col overflow-hidden">
                 <DialogHeader>
                   <DialogTitle>{episode.name}</DialogTitle>
                   <DialogDescription>
@@ -255,16 +257,16 @@ export function EpisodeCard({ episode, onDelete, deleting, onRetry, retrying }: 
                     {createdLabel ? ` • ${createdLabel}` : ''}
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 overflow-hidden">
+                <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
                   {audioSrc ? (
-                    <div className="rounded-md border bg-card p-2">
+                    <div className="shrink-0 rounded-md border bg-card p-2">
                       <audio controls preload="none" src={audioSrc} className="w-full" />
                     </div>
                   ) : audioError ? (
                     <p className="text-sm text-destructive">{audioError}</p>
                   ) : null}
 
-                  <Tabs defaultValue="summary" className="h-[60vh] flex flex-col">
+                  <Tabs defaultValue="summary" className="flex min-h-0 flex-1 flex-col">
                     <TabsList className="grid w-full grid-cols-3">
                       <TabsTrigger value="summary">{t('podcasts.summaryTab')}</TabsTrigger>
                       <TabsTrigger value="outline">{t('podcasts.outlineTab')}</TabsTrigger>
@@ -274,6 +276,7 @@ export function EpisodeCard({ episode, onDelete, deleting, onRetry, retrying }: 
                     <TabsContent value="summary" className="flex-1 overflow-hidden">
                       <ScrollArea className="h-full pr-4">
                         <div className="space-y-6">
+                          <PodcastPipeline episode={episode} />
                           <section className="space-y-2">
                             <h4 className="text-sm font-semibold text-foreground">{t('podcasts.episodeProfile')}</h4>
                             <div className="grid gap-2 text-sm md:grid-cols-2">

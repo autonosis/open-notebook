@@ -75,7 +75,23 @@ export interface Language {
   name: string
 }
 
+export interface PodcastPipelineProgress {
+  stage: string
+  elapsed_s: number
+  stage_elapsed_s: number
+  updated_at: number
+  command_id?: string
+  sections_done?: number
+  sections_total?: number
+  clips_done?: number
+  clips_total?: number
+  current_clip?: number
+  error_type?: string
+  timeline?: { stage: string; at: number; duration_s?: number }[]
+}
+
 export interface PodcastEpisode {
+  pipeline_progress?: PodcastPipelineProgress | null
   id: string
   name: string
   episode_profile: EpisodeProfileSnapshot

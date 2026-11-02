@@ -106,6 +106,9 @@ def _delete_episode_audio(episode: PodcastEpisode, episode_id: str) -> None:
             logger.warning(f"Failed to delete audio file {audio_path}: {e}")
 
 
+from open_notebook.podcasts.progress import snapshot as podcast_progress
+
+
 class PodcastEpisodeResponse(BaseModel):
     id: str
     name: str
@@ -117,6 +120,7 @@ class PodcastEpisodeResponse(BaseModel):
     transcript: Optional[dict] = None
     outline: Optional[dict] = None
     created: Optional[str] = None
+    pipeline_progress: Optional[dict] = None
     job_status: Optional[str] = None
     error_message: Optional[str] = None
 
@@ -237,6 +241,7 @@ async def list_podcast_episodes():
                     transcript=episode.transcript,
                     outline=episode.outline,
                     created=str(episode.created) if episode.created else None,
+                    pipeline_progress=podcast_progress(str(episode.id), job_status),
                     job_status=job_status,
                     error_message=error_message,
                 )
@@ -299,6 +304,7 @@ async def get_podcast_episode(episode_id: str):
             transcript=episode.transcript,
             outline=episode.outline,
             created=str(episode.created) if episode.created else None,
+            pipeline_progress=podcast_progress(str(episode.id), job_status),
             job_status=job_status,
             error_message=error_message,
         )
