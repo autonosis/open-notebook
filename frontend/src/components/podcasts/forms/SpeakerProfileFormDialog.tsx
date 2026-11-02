@@ -1,5 +1,6 @@
 'use client'
 
+import { VoicePreview } from './VoicePreview'
 import { useCallback, useEffect } from 'react'
 import { Controller, useFieldArray, useForm } from 'react-hook-form'
 import type { FieldErrorsImpl } from 'react-hook-form'
@@ -100,6 +101,7 @@ export function SpeakerProfileFormDialog({
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<SpeakerProfileFormValues>({
     resolver: zodResolver(speakerProfileSchema(t)),
@@ -270,11 +272,15 @@ export function SpeakerProfileFormDialog({
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor={`speaker-voice-${index}`}>{t('podcasts.voiceId')} *</Label>
-                    <Input
-                      id={`speaker-voice-${index}`}
-                      {...register(`speakers.${index}.voice_id` as const)}
-                      placeholder="voice_123"
-                      autoComplete="off"
+                    <Controller
+                      control={control}
+                      name={`speakers.${index}.voice_id` as const}
+                      render={({ field: voiceField }) => <VoicePreview
+                        modelId={watch(`speakers.${index}.voice_model`) || watch('voice_model')}
+                        voiceId={voiceField.value}
+                        onVoiceChange={voiceField.onChange}
+                        inputId={`speaker-voice-${index}`}
+                      />}
                     />
                     {errors.speakers?.[index]?.voice_id ? (
                       <p className="text-xs text-destructive">
