@@ -66,6 +66,20 @@ services:
       - surrealdb
     restart: unless-stopped
     mem_limit: 12g
+  frontend:
+    image: open-notebook-local:1.15.0-docling
+    entrypoint: [node, /app/frontend/server.js]
+    environment:
+      PORT: '8502'
+      HOSTNAME: 0.0.0.0
+      API_URL: http://localhost:5055
+      NEXT_TELEMETRY_DISABLED: '1'
+    depends_on:
+      open_notebook:
+        condition: service_healthy
+    logging: *local-logging
+    restart: unless-stopped
+    mem_limit: 512m
   kokoro:
     logging: *local-logging
     image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.9.2@sha256:cbcc28802fb5d1eaaba8b91e38b0e872a669e85831c513cf6a29c709cbe25405
@@ -105,7 +119,7 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     networks: [default, host_access]
-    depends_on: [open_notebook, kokoro]
+    depends_on: [open_notebook, frontend, kokoro]
     restart: unless-stopped
     mem_limit: 128m
 networks:

@@ -3,11 +3,10 @@
 import { memo, useCallback, useState, useRef, useEffect, useId } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
-import { Bot, User, Send, Loader2, FileText, Lightbulb, StickyNote, Clock } from 'lucide-react'
+import { Bot, User, Send, Loader2, FileText, Lightbulb, StickyNote, Clock, ArrowDown, MessageSquarePlus } from 'lucide-react'
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
 import {
   SourceChatMessage,
@@ -21,6 +20,7 @@ import { MessageActions } from '@/components/sources/MessageActions'
 import { convertReferencesToCompactMarkdown, createCompactReferenceLinkComponent } from '@/lib/utils/source-references'
 import { useModalManager } from '@/lib/hooks/use-modal-manager'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import { useTranslation } from '@/lib/hooks/use-translation'
 
 interface NotebookContextStats {
@@ -32,6 +32,10 @@ interface NotebookContextStats {
 }
 
 interface ChatPanelProps {
+  isVisible?: boolean
+  workspace?: boolean
+  onEditContext?: () => void
+  conversationTitle?: string
   messages: SourceChatMessage[]
   isStreaming: boolean
   contextIndicators: SourceChatContextIndicator | null
@@ -72,12 +76,24 @@ export function ChatPanel({
   title,
   contextType = 'source',
   notebookContextStats,
-  notebookId
+  notebookId,
+  workspace = false,
+  isVisible = true,
+  onEditContext,
+  conversationTitle
 }: ChatPanelProps) {
   const { t } = useTranslation()
   const [sessionManagerOpen, setSessionManagerOpen] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const followLatest = useRef(true)
+  const [showLatest, setShowLatest] = useState(false)
+  const scrollToLatest = useCallback(() => {
+    const area = scrollAreaRef.current
+    area?.scrollTo({ top: area.scrollHeight, behavior: 'smooth' })
+    followLatest.current = true
+    setShowLatest(false)
+  }, [])
   const { openModal } = useModalManager()
 
   // Stable reference-click handler so memoized messages don't re-render on
@@ -96,20 +112,26 @@ export function ChatPanel({
     }
   }, [openModal, t])
 
-  // Auto-scroll to bottom when new messages arrive
+  // Follow new answers only when already near the bottom. Reading older
+  // messages must not be interrupted by a reply or a context refresh.
+  useEffect(() => { followLatest.current = true }, [currentSessionId])
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    if (isVisible && followLatest.current && scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+    }
+  }, [messages, currentSessionId, isVisible])
 
   return (
     <>
-    <Card className="flex flex-col h-full flex-1 overflow-hidden">
-      <CardHeader className="pb-3 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.13em] text-muted-foreground">
-            <span aria-hidden className="h-3.5 w-[3px] rounded-full bg-teal" />
-            {title || (contextType === 'source' ? t('chat.chatWith', { name: t('navigation.sources') }) : t('chat.chatWith', { name: t('common.notebook') }))}
+    <Card className={cn("relative flex min-h-0 min-w-0 flex-col h-full flex-1 overflow-hidden", workspace && "border-0 rounded-none shadow-none bg-transparent gap-0 py-0")}>
+      <CardHeader className={cn("pb-3 flex-shrink-0", workspace && "mx-auto w-full max-w-4xl px-4 pt-3 pb-2 sm:px-6")}>
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <CardTitle className={cn("flex min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-[0.13em] text-muted-foreground", workspace && "normal-case tracking-normal font-medium")}>
+            {!workspace && <span aria-hidden className="h-3.5 w-[3px] rounded-full bg-teal" />}
+            <span className="truncate">{(workspace && conversationTitle) || title || (contextType === 'source' ? t('chat.chatWith', { name: t('navigation.sources') }) : t('chat.chatWith', { name: t('common.notebook') }))}</span>
           </CardTitle>
+          <div className="flex shrink-0 items-center gap-1">
+          {workspace && onCreateSession && <Button variant="ghost" size="icon" aria-label="New conversation" title="New conversation" onClick={() => onCreateSession('New conversation')} disabled={isStreaming}><MessageSquarePlus className="size-4" /></Button>}
           {onSelectSession && onCreateSession && onDeleteSession && (
             <Dialog open={sessionManagerOpen} onOpenChange={setSessionManagerOpen}>
               <Button
@@ -139,11 +161,23 @@ export function ChatPanel({
               </DialogContent>
             </Dialog>
           )}
+          </div>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col min-h-0 p-0">
-        <ScrollArea className="flex-1 min-h-0 px-4" ref={scrollAreaRef}>
-          <div className="space-y-4 py-4">
+      <CardContent className="flex-1 flex flex-col min-h-0 min-w-0 p-0">
+        {workspace && notebookContextStats && <div className="mx-auto flex w-full max-w-4xl shrink-0 flex-wrap items-center gap-x-3 border-b px-4 pb-2 sm:px-6">
+          <ContextIndicator {...notebookContextStats} className="flex-1 border-0 bg-transparent px-0" />
+          {onEditContext && <Button variant="ghost" size="sm" onClick={onEditContext} className="h-8 text-xs">Change sources</Button>}
+        </div>}
+        <div className="relative flex-1 min-h-0 min-w-0 overflow-y-auto overscroll-contain" ref={scrollAreaRef} data-testid="chat-messages" onScroll={() => {
+          const area = scrollAreaRef.current
+          if (area) {
+            const nearBottom = area.scrollHeight - area.scrollTop - area.clientHeight < 120
+            followLatest.current = nearBottom
+            setShowLatest(!nearBottom)
+          }
+        }}>
+          <div className={cn("space-y-6 px-4 py-5", workspace && "mx-auto w-full max-w-4xl sm:px-6 sm:py-8")}>
             {messages.length === 0 ? (
               <div className="text-center text-muted-foreground py-8">
                 <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -158,6 +192,7 @@ export function ChatPanel({
                   key={message.id}
                   message={message}
                   notebookId={notebookId}
+                  workspace={workspace}
                   onReferenceClick={handleReferenceClick}
                 />
               ))
@@ -176,7 +211,8 @@ export function ChatPanel({
             )}
             <div ref={messagesEndRef} />
           </div>
-        </ScrollArea>
+        </div>
+        {showLatest && <div className="relative flex h-0 justify-center"><Button variant="secondary" size="sm" onClick={scrollToLatest} className="absolute bottom-3 z-10 gap-2 rounded-full shadow-sm"><ArrowDown className="size-3.5" />Latest message</Button></div>}
 
         {/* Context Indicators */}
         {contextIndicators && (
@@ -205,7 +241,7 @@ export function ChatPanel({
         )}
 
         {/* Notebook Context Indicator */}
-        {notebookContextStats && (
+        {!workspace && notebookContextStats && (
           <ContextIndicator
             sourcesInsights={notebookContextStats.sourcesInsights}
             sourcesFull={notebookContextStats.sourcesFull}
@@ -217,6 +253,7 @@ export function ChatPanel({
 
         {/* Input Area */}
         <ChatComposer
+          workspace={workspace}
           onSendMessage={onSendMessage}
           isStreaming={isStreaming}
           modelOverride={modelOverride}
@@ -232,6 +269,7 @@ export function ChatPanel({
 // Composer owns the input state so keystrokes (including IME composition) only
 // re-render this small component instead of the whole message history.
 interface ChatComposerProps {
+  workspace?: boolean
   onSendMessage: (message: string, modelOverride?: string) => void
   isStreaming: boolean
   modelOverride?: string
@@ -242,11 +280,17 @@ function ChatComposer({
   onSendMessage,
   isStreaming,
   modelOverride,
-  onModelChange
+  onModelChange,
+  workspace = false
 }: ChatComposerProps) {
   const { t } = useTranslation()
   const chatInputId = useId()
   const [input, setInput] = useState('')
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    const field = textareaRef.current
+    if (field) { field.style.height = '0px'; field.style.height = `${Math.min(field.scrollHeight, 180)}px` }
+  }, [input])
 
   const handleSend = () => {
     if (input.trim() && !isStreaming) {
@@ -256,6 +300,7 @@ function ChatComposer({
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.nativeEvent.isComposing) return
     // Detect platform for correct modifier key
     const isMac = typeof navigator !== 'undefined' && navigator.userAgent.toUpperCase().indexOf('MAC') >= 0
     const isModifierPressed = isMac ? e.metaKey : e.ctrlKey
@@ -271,44 +316,25 @@ function ChatComposer({
   const keyHint = isMac ? '⌘+Enter' : 'Ctrl+Enter'
 
   return (
-    <div className="flex-shrink-0 p-4 space-y-3 border-t">
-      {/* Model selector */}
-      {onModelChange && (
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">{t('chat.model')}</span>
-          <ModelSelector
-            currentModel={modelOverride}
-            onModelChange={onModelChange}
-            disabled={isStreaming}
-          />
+    <div className={cn("shrink-0 min-w-0 p-3 sm:p-4", workspace && "mx-auto w-full max-w-4xl sm:px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]")}>
+      <div className="rounded-xl border bg-card p-3 shadow-sm transition-shadow focus-within:ring-1 focus-within:ring-ring">
+        <label htmlFor={chatInputId} className="sr-only">Message</label>
+        <Textarea ref={textareaRef} id={chatInputId} name="chat-message" autoComplete="off" value={input}
+          onChange={event => setInput(event.target.value)} onKeyDown={handleKeyDown}
+          placeholder={t('chat.sendPlaceholder')} disabled={isStreaming}
+          className="min-h-[60px] max-h-[180px] w-full min-w-0 resize-none border-0 bg-transparent px-1 py-1 shadow-none focus-visible:ring-0 [field-sizing:fixed]"
+          rows={2} />
+        <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
+          <div className="min-w-0 max-w-[65%]">
+            {onModelChange && <ModelSelector currentModel={modelOverride} onModelChange={onModelChange} disabled={isStreaming} />}
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <span className="hidden text-xs text-muted-foreground sm:inline">{keyHint}</span>
+            <Button onClick={handleSend} disabled={!input.trim() || isStreaming} aria-label="Send message" className="gap-2">
+              {isStreaming ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}<span>Send</span>
+            </Button>
+          </div>
         </div>
-      )}
-
-      <div className="flex gap-2 items-end min-w-0">
-        <Textarea
-          id={chatInputId}
-          name="chat-message"
-          autoComplete="off"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={`${t('chat.sendPlaceholder')} (${t('chat.pressToSend', { key: keyHint })})`}
-          disabled={isStreaming}
-          className="flex-1 min-h-[40px] max-h-[100px] resize-none py-2 px-3 min-w-0"
-          rows={1}
-        />
-        <Button
-          onClick={handleSend}
-          disabled={!input.trim() || isStreaming}
-          size="icon"
-          className="h-[40px] w-[40px] flex-shrink-0"
-        >
-          {isStreaming ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
-          )}
-        </Button>
       </div>
     </div>
   )
@@ -317,6 +343,7 @@ function ChatComposer({
 // Single chat message row. Memoized so historical messages don't re-render when
 // unrelated state (e.g. the composer input) changes.
 interface ChatMessageProps {
+  workspace?: boolean
   message: SourceChatMessage
   notebookId?: string
   onReferenceClick: (type: string, id: string) => void
@@ -325,28 +352,24 @@ interface ChatMessageProps {
 const ChatMessage = memo(function ChatMessage({
   message,
   notebookId,
-  onReferenceClick
+  onReferenceClick,
+  workspace = false
 }: ChatMessageProps) {
   return (
     <div
-      className={`flex gap-3 ${
-        message.type === 'human' ? 'justify-end' : 'justify-start'
-      }`}
+      className={cn('flex min-w-0 gap-3', !workspace && message.type === 'human' ? 'justify-end' : 'justify-start')}
     >
       {message.type === 'ai' && (
-        <div className="flex-shrink-0">
+        <div className={cn("flex-shrink-0", workspace && "hidden sm:block")}>
           <div className="h-8 w-8 rounded-full bg-teal-tint flex items-center justify-center">
             <Bot className="h-4 w-4 text-teal" />
           </div>
         </div>
       )}
-      <div className="flex flex-col gap-2 max-w-[80%]">
+      <div className={cn("flex min-w-0 flex-col gap-2 max-w-[85%]", workspace && "max-w-full flex-1")}>
+        {workspace && <div className="text-xs font-semibold text-muted-foreground">{message.type === 'human' ? 'You' : 'Assistant'}</div>}
         <div
-          className={`rounded-lg px-4 py-2 border ${
-            message.type === 'human'
-              ? 'bg-muted'
-              : 'bg-card'
-          }`}
+          className={cn('min-w-0 max-w-full rounded-lg px-4 py-2 border [overflow-wrap:anywhere] [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden', message.type === 'human' ? 'bg-muted' : 'bg-card', workspace && message.type === 'ai' && 'border-0 bg-transparent px-0 py-0')}
         >
           {message.type === 'ai' ? (
             <AIMessageContent
@@ -354,7 +377,7 @@ const ChatMessage = memo(function ChatMessage({
               onReferenceClick={onReferenceClick}
             />
           ) : (
-            <p className="text-sm break-all">{message.content}</p>
+            <p className="text-sm whitespace-pre-wrap break-normal [overflow-wrap:anywhere] leading-7">{message.content}</p>
           )}
         </div>
         {message.type === 'ai' && (
@@ -364,8 +387,8 @@ const ChatMessage = memo(function ChatMessage({
           />
         )}
       </div>
-      {message.type === 'human' && (
-        <div className="flex-shrink-0">
+      {message.type === 'human' && !workspace && (
+        <div className={cn("flex-shrink-0", workspace && "hidden sm:block")}>
           <div className="h-8 w-8 rounded-full bg-muted border flex items-center justify-center">
             <User className="h-4 w-4 text-muted-foreground" />
           </div>

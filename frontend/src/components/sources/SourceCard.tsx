@@ -257,7 +257,7 @@ function SourceCardImpl({
             {/* Title */}
             <div className={cn('mb-1.5', !isCompleted && 'mb-1')}>
               <h4
-                className="text-sm font-medium leading-tight line-clamp-2 break-all pr-6"
+                className="text-sm font-medium leading-relaxed break-normal [overflow-wrap:anywhere] pr-6"
                 title={title}
               >
                 {title}
@@ -313,7 +313,7 @@ function SourceCardImpl({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute top-1.5 right-1.5 h-7 w-7 p-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-1.5 right-1.5 h-7 w-7 p-0 text-muted-foreground opacity-100 sm:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <MoreVertical className="h-4 w-4" />

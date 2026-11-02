@@ -27,6 +27,7 @@ import { useNotebookColumnsStore } from '@/lib/stores/notebook-columns-store'
 import { useTranslation } from '@/lib/hooks/use-translation'
 
 interface NotesColumnProps {
+  embedded?: boolean
   notes?: NoteResponse[]
   isLoading: boolean
   notebookId: string
@@ -36,6 +37,7 @@ interface NotesColumnProps {
 }
 
 export function NotesColumn({
+  embedded = false,
   notes,
   isLoading,
   notebookId,
@@ -84,19 +86,19 @@ export function NotesColumn({
   return (
     <>
       <CollapsibleColumn
-        isCollapsed={notesCollapsed}
+        isCollapsed={!embedded && notesCollapsed}
         onToggle={toggleNotes}
         collapsedIcon={StickyNote}
         collapsedLabel={notesLabel}
       >
-        <Card className="h-full flex flex-col flex-1 overflow-hidden">
-          <CardHeader className="pb-3 flex-shrink-0">
-            <div className="flex items-center justify-between gap-2">
+        <Card className={embedded ? "h-full min-h-0 min-w-0 flex flex-col flex-1 overflow-hidden border-0 shadow-none bg-transparent py-0 gap-0" : "h-full flex flex-col flex-1 overflow-hidden"}>
+          <CardHeader className="pb-4 px-0 pt-0 flex-shrink-0">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <CardTitle className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.13em] text-muted-foreground">
                 <span aria-hidden className="h-3.5 w-[3px] rounded-full bg-gold" />
                 {notesLabel}
               </CardTitle>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {onBulkContextModeChange && notes && notes.length > 0 && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -119,12 +121,12 @@ export function NotesColumn({
                   <Plus className="h-4 w-4 mr-2" />
                   {t('common.writeNote')}
                 </Button>
-                {collapseButton}
+                {!embedded && collapseButton}
               </div>
             </div>
           </CardHeader>
 
-          <CardContent className="flex-1 overflow-y-auto min-h-0">
+          <CardContent className="flex-1 overflow-y-auto min-h-0 px-0">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <LoadingSpinner />
@@ -144,7 +146,7 @@ export function NotesColumn({
                     onClick={() => handleOpenEditor(note)}
                   >
                     <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {note.note_type === 'ai' ? (
                           <Bot className="h-4 w-4 text-teal" />
                         ) : (
@@ -155,7 +157,7 @@ export function NotesColumn({
                         </Badge>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs text-muted-foreground">
                           {formatDistanceToNow(new Date(note.updated), { 
                             addSuffix: true,
