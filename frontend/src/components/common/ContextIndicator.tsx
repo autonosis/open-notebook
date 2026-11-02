@@ -44,17 +44,17 @@ export function ContextIndicator({
   }
 
   return (
-    <div className={cn('flex-shrink-0 flex items-center justify-between gap-2 py-2 px-3 border-t bg-muted/30', className)}>
-      <div className="flex items-center gap-2">
+    <div className={cn('flex-shrink-0 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2 px-3 border-t bg-muted/30', className)}>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         <span className="text-xs font-medium text-muted-foreground">Context:</span>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           {sourcesInsights > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Badge variant="outline" className="text-xs flex items-center gap-1 px-1.5 py-0.5 text-ctx-insights border-ctx-insights/50 cursor-default">
                   <Lightbulb className="h-3 w-3" />
-                  <span>{sourcesInsights}</span>
+                  <span>{sourcesInsights} insights only</span>
                 </Badge>
               </TooltipTrigger>
               <TooltipContent>
@@ -68,7 +68,7 @@ export function ContextIndicator({
               <TooltipTrigger asChild>
                 <Badge variant="outline" className="text-xs flex items-center gap-1 px-1.5 py-0.5 text-ctx-full border-ctx-full/50 cursor-default">
                   <FileText className="h-3 w-3" />
-                  <span>{sourcesFull}</span>
+                  <span>{sourcesFull} full source{sourcesFull === 1 ? '' : 's'}</span>
                 </Badge>
               </TooltipTrigger>
               <TooltipContent>
@@ -87,7 +87,7 @@ export function ContextIndicator({
               <TooltipTrigger asChild>
                 <Badge variant="outline" className="text-xs flex items-center gap-1 px-1.5 py-0.5 text-ctx-full border-ctx-full/50 cursor-default">
                   <StickyNote className="h-3 w-3" />
-                  <span>{notesCount}</span>
+                  <span>{notesCount} note{notesCount === 1 ? '' : 's'}</span>
                 </Badge>
               </TooltipTrigger>
               <TooltipContent>
@@ -101,13 +101,13 @@ export function ContextIndicator({
       {(tokenCount !== undefined || charCount !== undefined) && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           {tokenCount !== undefined && tokenCount > 0 && (
-            <span>{formatNumber(tokenCount)} tokens</span>
+            <span className="whitespace-nowrap">~{formatNumber(tokenCount)} tokens</span>
           )}
           {tokenCount !== undefined && charCount !== undefined && tokenCount > 0 && charCount > 0 && (
-            <span>/</span>
+            <span className="hidden sm:inline">/</span>
           )}
           {charCount !== undefined && charCount > 0 && (
-            <span>{formatNumber(charCount)} chars</span>
+            <span className="hidden sm:inline whitespace-nowrap">{formatNumber(charCount)} chars</span>
           )}
         </div>
       )}

@@ -12,13 +12,15 @@ import { useTranslation } from '@/lib/hooks/use-translation'
 import { SourceListResponse } from '@/lib/types/api'
 
 interface ChatColumnProps {
+  isVisible?: boolean
+  onEditContext?: () => void
   notebookId: string
   contextSelections: ContextSelections
   sources: SourceListResponse[]
   sourcesLoading: boolean
 }
 
-export function ChatColumn({ notebookId, contextSelections, sources, sourcesLoading }: ChatColumnProps) {
+export function ChatColumn({ notebookId, contextSelections, sources, sourcesLoading, onEditContext, isVisible = true }: ChatColumnProps) {
   const { t } = useTranslation()
 
   // Fetch notes for this notebook
@@ -94,6 +96,10 @@ export function ChatColumn({ notebookId, contextSelections, sources, sourcesLoad
   return (
     <ChatPanel
       title={t('chat.chatWithNotebook')}
+      workspace
+      isVisible={isVisible}
+      conversationTitle={chat.currentSession?.title}
+      onEditContext={onEditContext}
       contextType="notebook"
       messages={chat.messages}
       isStreaming={chat.isSending}

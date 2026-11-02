@@ -26,6 +26,7 @@ import { useNotebookColumnsStore } from '@/lib/stores/notebook-columns-store'
 import { useTranslation } from '@/lib/hooks/use-translation'
 
 interface SourcesColumnProps {
+  embedded?: boolean
   sources?: SourceListResponse[]
   isLoading: boolean
   notebookId: string
@@ -41,6 +42,7 @@ interface SourcesColumnProps {
 }
 
 export function SourcesColumn({
+  embedded = false,
   sources,
   isLoading,
   notebookId,
@@ -151,19 +153,19 @@ export function SourcesColumn({
   return (
     <>
       <CollapsibleColumn
-        isCollapsed={sourcesCollapsed}
+        isCollapsed={!embedded && sourcesCollapsed}
         onToggle={toggleSources}
         collapsedIcon={FileText}
         collapsedLabel={t('navigation.sources')}
       >
-        <Card className="h-full flex flex-col flex-1 overflow-hidden">
-          <CardHeader className="pb-3 flex-shrink-0">
-            <div className="flex items-center justify-between gap-2">
+        <Card className={embedded ? "h-full min-h-0 min-w-0 flex flex-col flex-1 overflow-hidden border-0 shadow-none bg-transparent py-0 gap-0" : "h-full flex flex-col flex-1 overflow-hidden"}>
+          <CardHeader className="pb-4 px-0 pt-0 flex-shrink-0">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <CardTitle className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.13em] text-muted-foreground">
                 <span aria-hidden className="h-3.5 w-[3px] rounded-full bg-sage" />
                 {t('navigation.sources')}
               </CardTitle>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {onBulkContextModeChange && sources && sources.length > 0 && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -204,12 +206,12 @@ export function SourcesColumn({
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                {collapseButton}
+                {!embedded && collapseButton}
               </div>
             </div>
           </CardHeader>
 
-          <CardContent ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0">
+          <CardContent ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0 px-0">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <LoadingSpinner />
@@ -221,7 +223,7 @@ export function SourcesColumn({
                 description={t('sources.createFirstSource')}
               />
             ) : (
-              <div className="space-y-2">
+              <div className={embedded ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-3 items-start" : "space-y-2"}>
                 {sources.map((source) => (
                   <SourceCard
                     key={source.id}
