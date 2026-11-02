@@ -125,6 +125,10 @@ async def generate_podcast_command(
     Real podcast generation using podcast-creator library with Episode Profiles
     """
     start_time = time.time()
+    from open_notebook.podcasts.progress import CURRENT, update
+
+    progress_token = None
+    episode_id = None
 
     try:
         logger.info(
@@ -342,6 +346,14 @@ async def generate_podcast_command(
             outline=None,
         )
         await episode.save()
+        episode_id = str(episode.id)
+        progress_token = CURRENT.set(episode_id)
+        update(
+            episode_id,
+            "preparing",
+            started_at=start_time,
+            command_id=str(episode.command),
+        )
 
         # SECURITY NOTE for future work: podcast_creator also supports
         # configure("templates", {...}), which compiles the given string
@@ -417,6 +429,7 @@ async def generate_podcast_command(
             f"Successfully generated podcast episode: {episode.id} in {processing_time:.2f}s"
         )
 
+        update(episode_id, "completed", finished_at=time.time())
         return PodcastGenerationOutput(
             success=True,
             episode_id=str(episode.id),
@@ -431,6 +444,13 @@ async def generate_podcast_command(
         )
 
     except ValueError as e:
+        if episode_id:
+            update(
+                episode_id,
+                "failed",
+                error_type=type(e).__name__,
+                finished_at=time.time(),
+            )
         # ValueError is the command layer's "permanent failure, do not retry"
         # signal (retry config uses stop_on=[ValueError]), so the type has to
         # survive - but LangChain's OutputParserException and
@@ -445,6 +465,13 @@ async def generate_podcast_command(
         raise ValueError(f"{e}\n\nNOTE: {hint}") from e
 
     except Exception as e:
+        if episode_id:
+            update(
+                episode_id,
+                "failed",
+                error_type=type(e).__name__,
+                finished_at=time.time(),
+            )
         logger.error(f"Podcast generation failed: {e}")
         logger.exception(e)
 
@@ -454,3 +481,7 @@ async def generate_podcast_command(
             error_msg += f"\n\nNOTE: {hint}"
 
         raise RuntimeError(error_msg) from e
+
+    finally:
+        if progress_token is not None:
+            CURRENT.reset(progress_token)

@@ -1,5 +1,7 @@
 'use client'
 
+import { PodcastPipeline } from './PodcastPipeline'
+
 import { useEffect, useMemo, useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { getDateLocale } from '@/lib/utils/date-locale'
@@ -274,6 +276,7 @@ export function EpisodeCard({ episode, onDelete, deleting, onRetry, retrying }: 
                     <TabsContent value="summary" className="flex-1 overflow-hidden">
                       <ScrollArea className="h-full pr-4">
                         <div className="space-y-6">
+                          <PodcastPipeline episode={episode} />
                           <section className="space-y-2">
                             <h4 className="text-sm font-semibold text-foreground">{t('podcasts.episodeProfile')}</h4>
                             <div className="grid gap-2 text-sm md:grid-cols-2">

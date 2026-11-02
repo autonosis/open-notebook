@@ -1,6 +1,7 @@
 import type { TranslationShape } from '../en-US';
 
 export const caES = {
+  podcastProgress: {"title": "Processing pipeline", "preparing": "Preparing models and profiles", "outline": "Generating outline", "script": "Writing conversation script", "speech": "Synthesizing speech", "assembly": "Assembling audio", "saving": "Saving episode", "completed": "Completed", "failed": "Failed", "sections": "Script sections", "clips": "Audio clips saved", "currentClip": "Current clip", "elapsed": "Elapsed", "stageElapsed": "Time in current stage", "updated": "Last progress update", "job": "Job ID", "unavailable": "Detailed stage history is unavailable for this older run.", "history": "Stage history", "refresh": "Refreshes every 3 seconds while running", "error": "Error type"},
   common: {
     search: "Cerca...",
     create: "Nou",
