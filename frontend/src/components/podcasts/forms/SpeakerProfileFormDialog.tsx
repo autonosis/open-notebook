@@ -272,14 +272,16 @@ export function SpeakerProfileFormDialog({
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor={`speaker-voice-${index}`}>{t('podcasts.voiceId')} *</Label>
-                    <Input
-                      list={`voice-options-${field.id}`}
-                      id={`speaker-voice-${index}`}
-                      {...register(`speakers.${index}.voice_id` as const)}
-                      placeholder="voice_123"
-                      autoComplete="off"
+                    <Controller
+                      control={control}
+                      name={`speakers.${index}.voice_id` as const}
+                      render={({ field: voiceField }) => <VoicePreview
+                        modelId={watch(`speakers.${index}.voice_model`) || watch('voice_model')}
+                        voiceId={voiceField.value}
+                        onVoiceChange={voiceField.onChange}
+                        inputId={`speaker-voice-${index}`}
+                      />}
                     />
-                    <VoicePreview modelId={watch(`speakers.${index}.voice_model`) || watch('voice_model')} voiceId={watch(`speakers.${index}.voice_id`)} listId={`voice-options-${field.id}`} />
                     {errors.speakers?.[index]?.voice_id ? (
                       <p className="text-xs text-destructive">
                         {errors.speakers[index]?.voice_id?.message}

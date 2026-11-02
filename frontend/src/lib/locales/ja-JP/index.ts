@@ -1,7 +1,7 @@
 import type { TranslationShape } from '../en-US';
 
 export const jaJP = {
-  voicePreview: {"preview": "Preview voice", "loading": "Generating sample\u2026", "hint": "Choose a suggested voice ID or enter one, then preview it before saving.", "needsModel": "Select a voice model first.", "error": "Could not generate this voice preview. Check the voice ID and selected model.", "sample": "Voice sample"},
+  voicePreview: {"chooseVoice": "Choose a voice", "customVoice": "Custom voice ID (optional)","preview": "Preview voice", "loading": "Generating sample\u2026", "hint": "Choose a voice from the full list, then preview it before saving.", "needsModel": "Select a voice model first.", "error": "Could not generate this voice preview. Check the voice ID and selected model.", "sample": "Voice sample"},
   podcastProgress: {"title": "Processing pipeline", "preparing": "Preparing models and profiles", "outline": "Generating outline", "script": "Writing conversation script", "speech": "Synthesizing speech", "assembly": "Assembling audio", "saving": "Saving episode", "completed": "Completed", "failed": "Failed", "sections": "Script sections", "clips": "Audio clips saved", "currentClip": "Current clip", "elapsed": "Elapsed", "stageElapsed": "Time in current stage", "updated": "Last progress update", "job": "Job ID", "unavailable": "Detailed stage history is unavailable for this older run.", "history": "Stage history", "refresh": "Refreshes every 3 seconds while running", "error": "Error type"},
   common: {
     search: "検索...",
