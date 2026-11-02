@@ -29,7 +29,29 @@ class ThreadState(TypedDict):
 
 def call_model_with_messages(state: ThreadState, config: RunnableConfig) -> dict:
     try:
-        system_prompt = Prompter(prompt_template="chat/system").render(data=state)  # type: ignore[arg-type]
+        from open_notebook.utils.chat_retrieval import retrieve_notebook_context
+
+        messages = state.get("messages", [])
+        query = next(
+            (str(m.content) for m in reversed(messages) if m.type == "human"), ""
+        )
+
+        def retrieve_context():
+            return asyncio.run(retrieve_notebook_context(state.get("context"), query))
+
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            context = retrieve_context()
+        else:
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                context = executor.submit(retrieve_context).result()
+        prompt_state = {**state, "context": context}
+        system_prompt = Prompter(prompt_template="chat/system").render(
+            data=prompt_state
+        )  # type: ignore[arg-type]
         payload = [SystemMessage(content=system_prompt)] + state.get("messages", [])
         model_id = config.get("configurable", {}).get("model_id") or state.get(
             "model_override"
@@ -84,7 +106,7 @@ def call_model_with_messages(state: ThreadState, config: RunnableConfig) -> dict
             )
         cleaned_message = ai_message.model_copy(update={"content": cleaned_content})
 
-        return {"messages": cleaned_message}
+        return {"messages": cleaned_message, "context": context}
     except OpenNotebookError:
         raise
     except Exception as e:
