@@ -9,7 +9,7 @@ Podcasts → Profiles has two optional speaker pairs and matching episode profil
 | Qwen local research | Qwen English pair | Ryan / Aiden |
 | Chatterbox local research | Chatterbox English pair | Heart / Michael, synthetic references |
 
-Select the episode profile when generating a podcast, or edit any speaker profile to select its voice model. The voice dropdown lists nine named Qwen presets or two Chatterbox references; inline auditions use the selected model. Qwen's multilingual presets are exposed, but this integration's acceptance tests use English. Chatterbox currently supports the two configured English synthetic references, not arbitrary voice uploads/cloning.
+Select the episode profile when generating a podcast, or edit any speaker profile to select its voice model. The voice dropdown lists nine named Qwen presets or two Chatterbox references; inline auditions use the selected model. Qwen's multilingual presets are exposed, but this integration's acceptance tests use English. Chatterbox also supports saved reference voices through Podcasts → Voice cloning. See [VOICE_CLONING.md](VOICE_CLONING.md) for recording/upload, auditions, profile handoff and private storage. The installed Qwen CustomVoice variant remains preset-only.
 
 ## Architecture and persistence
 
@@ -20,7 +20,7 @@ The service binds **127.0.0.1:11438**, requires a private bearer token for infer
 - `http://gateway:11438/v1/qwen3-tts`
 - `http://gateway:11438/v1/chatterbox`
 
-Routes: `GET /models`, `GET /audio/voices`, `POST /audio/speech` relative to each base URL. Speech accepts standard `model`, `voice`, `input`, `response_format` and optional `speed`. MP3, WAV and 24 kHz mono PCM are supported. Invalid voices/model paths/reference uploads/unsupported formats are rejected. WAV/MP3 encode before response; this is buffered speech for the podcast library, not a streaming client API. Tempo changes use local FFmpeg.
+Routes: `GET /models`, `GET /audio/voices`, `POST /audio/speech` relative to each base URL. Speech accepts standard `model`, `voice`, `input`, `response_format` and optional `speed`. MP3, WAV and 24 kHz mono PCM are supported. Invalid voices/model paths/unsupported formats are rejected. Reference uploads use the separate authenticated clone endpoints described in VOICE_CLONING.md. WAV/MP3 encode before response; this is buffered speech for the podcast library, not a streaming client API. Tempo changes use local FFmpeg.
 
 One dedicated inference thread serializes all Metal access. Only one of Qwen/Chatterbox is resident, and Chatterbox conditions are cached separately per voice. Switching models releases the previous model and Metal cache. Five idle minutes unload the optional model. A two-request queue rejects excess requests with HTTP 429; canceled callers keep their slot until native inference finishes. Long turns are divided at word boundaries into 1,000-character spans, keeping each synthesis well within the 4,096-audio-token runaway guard. This is separate from language-model output settings.
 

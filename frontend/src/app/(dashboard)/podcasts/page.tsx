@@ -8,20 +8,29 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { EpisodesTab } from '@/components/podcasts/EpisodesTab'
 import { TemplatesTab } from '@/components/podcasts/TemplatesTab'
-import { Mic, LayoutTemplate } from 'lucide-react'
+import { VoiceCloningTab } from '@/components/podcasts/VoiceCloningTab'
+import { Mic, LayoutTemplate, AudioLines } from 'lucide-react'
 import { useTranslation } from '@/lib/hooks/use-translation'
-import { useEpisodeProfiles, useSpeakerProfiles } from '@/lib/hooks/use-podcasts'
+import {
+  useEpisodeProfiles,
+  useSpeakerProfiles,
+} from '@/lib/hooks/use-podcasts'
 import { needsModelSetup } from '@/lib/types/podcasts'
 
 export default function PodcastsPage() {
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState<'episodes' | 'templates'>('episodes')
+  const [activeTab, setActiveTab] = useState<
+    'episodes' | 'templates' | 'cloning'
+  >('episodes')
 
   const { episodeProfiles } = useEpisodeProfiles()
   const { speakerProfiles } = useSpeakerProfiles(episodeProfiles)
 
   const hasUnconfiguredProfiles = useMemo(() => {
-    return episodeProfiles.some(needsModelSetup) || speakerProfiles.some(needsModelSetup)
+    return (
+      episodeProfiles.some(needsModelSetup) ||
+      speakerProfiles.some(needsModelSetup)
+    )
   }, [episodeProfiles, speakerProfiles])
 
   return (
@@ -29,10 +38,10 @@ export default function PodcastsPage() {
       <div className="flex-1 overflow-y-auto">
         <div className="px-6 py-6 space-y-6">
           <header className="space-y-1">
-            <h1 className="font-display text-2xl font-bold tracking-tight">{t('podcasts.listTitle')}</h1>
-            <p className="text-muted-foreground">
-              {t('podcasts.listDesc')}
-            </p>
+            <h1 className="font-display text-2xl font-bold tracking-tight">
+              {t('podcasts.listTitle')}
+            </h1>
+            <p className="text-muted-foreground">{t('podcasts.listDesc')}</p>
           </header>
 
           {hasUnconfiguredProfiles ? (
@@ -47,12 +56,19 @@ export default function PodcastsPage() {
 
           <Tabs
             value={activeTab}
-            onValueChange={(value) => setActiveTab(value as 'episodes' | 'templates')}
+            onValueChange={(value) =>
+              setActiveTab(value as 'episodes' | 'templates' | 'cloning')
+            }
             className="space-y-6"
           >
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('podcasts.chooseAView')}</p>
-              <TabsList aria-label={t('common.accessibility.podcastViews')} className="w-full max-w-md">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {t('podcasts.chooseAView')}
+              </p>
+              <TabsList
+                aria-label={t('common.accessibility.podcastViews')}
+                className="w-full max-w-xl"
+              >
                 <TabsTrigger value="episodes">
                   <Mic className="h-4 w-4" />
                   {t('podcasts.episodesTab')}
@@ -61,11 +77,19 @@ export default function PodcastsPage() {
                   <LayoutTemplate className="h-4 w-4" />
                   {t('podcasts.templatesTab')}
                 </TabsTrigger>
+                <TabsTrigger value="cloning">
+                  <AudioLines className="h-4 w-4" />
+                  {t('voiceCloning.tab')}
+                </TabsTrigger>
               </TabsList>
             </div>
 
             <TabsContent value="episodes">
               <EpisodesTab />
+            </TabsContent>
+
+            <TabsContent value="cloning">
+              <VoiceCloningTab />
             </TabsContent>
 
             <TabsContent value="templates">
