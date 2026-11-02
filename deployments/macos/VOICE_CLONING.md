@@ -7,7 +7,8 @@ Recording asks the browser for microphone access only when Record my voice is pr
 ## Supported models
 
 - **Chatterbox:** local reference-audio cloning using the already installed MLX model. This deployment currently synthesizes English.
-- **Qwen3-TTS CustomVoice:** installed preset model, not a cloning model. The separate Qwen Base variant would need deliberate provisioning and verification. The UI explains this rather than presenting a broken cloning option.
+- **Qwen3-TTS Base:** select `qwen3-tts-base` for local cloning. Enter the exact words spoken in the reference recording. Use suggested recording text fills a script to read aloud. Both audio and matching text are saved privately; they are not sent to a language model. The current integration synthesizes English.
+- **Qwen3-TTS CustomVoice:** the existing `qwen3-tts` model retains its nine preset speakers; it remains separate from Base.
 - **Kokoro:** preset voices; remains the default. Cloning is not advertised for it.
 
 This is reference-conditioned synthesis, not training a new model. No personal recording is bundled or committed. Use your voice or recordings you have permission to use.
@@ -24,10 +25,14 @@ Podcast script generation still uses the configured language provider (currently
 
 ## Protocol and recovery
 
-Application endpoints under `/api/podcasts/voice-cloning`: GET `models`; GET/POST `voices` (multipart model_id/name/file for creation); PATCH `voices/{id}` with archived flag and model_id; GET `voices/{id}/reference` with model_id. Provider routes mirror these under `/v1/chatterbox/audio`, with `clone-capabilities` for capability discovery. Ordinary `/audio/voices` and `/audio/speech` use the saved clone IDs, so podcast generation and transcript audio revisions require no special path handling.
+Application endpoints under `/api/podcasts/voice-cloning`: GET `models`; GET/POST `voices` (multipart model_id/name/file, plus reference_text for Qwen Base); PATCH `voices/{id}` with archived flag and model_id; GET `voices/{id}/reference` with model_id. Provider routes mirror these under `/v1/chatterbox/audio` or `/v1/qwen3-tts-base/audio`, with `clone-capabilities` for capability discovery. Ordinary `/audio/voices` and `/audio/speech` use the saved clone IDs, so podcast generation and transcript audio revisions require no special path handling.
 
 Uploads are bounded before forwarding and again by the native service. FFmpeg is restricted to expected audio containers and local file/pipe protocols, validates actual decoded duration and rejects silent samples. Voice IDs are server-created UUIDs, never paths. Existing references resolve through directory enumeration rather than path joins from request IDs; symlinks are rejected. Unsaved recording previews decode binary audio with Web Audio rather than interpreting file-derived URLs. Failed imports remove partial references; metadata publication is atomic. No background training status is invented: Save stores the reference, and Preview shows the actual synthesis wait.
 
 Update the fork and pinned native requirements, wait for active speech/podcast jobs, then restart `local.open-notebook.tts` and redeploy the API/frontend using the existing operations guide. The native adapter now requires `python-multipart==0.0.33`. Restarting either component retains the voice library. Back up/restore data, config and credentials together. Restore voice directories before attempting to regenerate episodes that reference them.
 
 Upstream: https://github.com/Blaizzy/mlx-audio/blob/main/docs/guides/voice-cloning.md and https://github.com/Blaizzy/mlx-audio/blob/main/docs/models/tts/chatterbox.md.
+
+## Qwen Base checkpoint
+
+Pinned MLX conversion: mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit, revision e7dd0585652209fa0d7783659aad4e8a324de11c, about 3.1 GB, Apache-2.0. Upstream provenance: Qwen/Qwen3-TTS-12Hz-1.7B-Base. Uses installed mlx-audio 0.6.3 without upgrading the native runtime. The native setup/download scripts provision/register Base idempotently. Saved references are scoped to their backend and cannot be used through another backend by changing the endpoint. One inference thread and one resident speech model are retained across Base, CustomVoice and Chatterbox. Reference text is limited to 4000 characters for the 5–30 second recording; this is not a language-model output token limit.

@@ -21,7 +21,7 @@ async def connection(model_id):
     if (
         model.type != "text_to_speech"
         or model.provider != "openai_compatible"
-        or model.name not in {"chatterbox", "qwen3-tts"}
+        or model.name not in {"chatterbox", "qwen3-tts", "qwen3-tts-base"}
     ):
         raise InvalidInputError(
             "Voice cloning is available through the configured local speech service"
@@ -88,6 +88,7 @@ async def models():
         if model.provider == "openai_compatible" and model.name in {
             "chatterbox",
             "qwen3-tts",
+            "qwen3-tts-base",
         }:
             try:
                 response = await request(str(model.id), "GET", "clone-capabilities")

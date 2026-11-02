@@ -37,13 +37,14 @@ async def test_private_voice_never_forwarded_to_cloud(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_local_model_credentials_are_resolved_and_validated(monkeypatch):
+@pytest.mark.parametrize("name", ["chatterbox", "qwen3-tts-base"])
+async def test_local_model_credentials_are_resolved_and_validated(monkeypatch, name):
     monkeypatch.setattr(
         service.Model,
         "get",
         AsyncMock(
             return_value=SimpleNamespace(
-                type="text_to_speech", provider="openai_compatible", name="chatterbox"
+                type="text_to_speech", provider="openai_compatible", name=name
             )
         ),
     )
@@ -55,7 +56,7 @@ async def test_local_model_credentials_are_resolved_and_validated(monkeypatch):
                 "openai_compatible",
                 "chatterbox",
                 {
-                    "base_url": "http://gateway:11438/v1/chatterbox",
+                    "base_url": f"http://gateway:11438/v1/{name}",
                     "api_key": "private",
                 },
             )
@@ -64,7 +65,7 @@ async def test_local_model_credentials_are_resolved_and_validated(monkeypatch):
     validate = AsyncMock()
     monkeypatch.setattr(service, "validate_url", validate)
     base, headers = await service.connection("model:test")
-    assert base == "http://gateway:11438/v1/chatterbox"
+    assert base == f"http://gateway:11438/v1/{name}"
     assert headers == {"Authorization": "Bearer private"}
     validate.assert_awaited_once()
 

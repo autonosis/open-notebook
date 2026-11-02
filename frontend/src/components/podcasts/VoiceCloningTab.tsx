@@ -5,6 +5,7 @@ import { Mic, Square, Upload, AudioLines } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import {
   useCloningModels,
@@ -30,10 +31,14 @@ export function VoiceCloningTab() {
   const models = useCloningModels()
   const [selection, setSelection] = useState('')
   const modelId = selection || models.data?.find((m) => m.supported)?.id || ''
+  const requiresReferenceText = Boolean(
+    models.data?.find((m) => m.id === modelId)?.requires_reference_text,
+  )
   const voices = useClonedVoices(modelId)
   const save = useSaveClone(modelId)
   const archive = useArchiveClone(modelId)
   const [name, setName] = useState('')
+  const [referenceText, setReferenceText] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [recording, setRecording] = useState(false)
   const [seconds, setSeconds] = useState(0)
@@ -138,10 +143,17 @@ export function VoiceCloningTab() {
     setError('')
     setSuccess('')
     try {
-      const voice = await save.mutateAsync({ name: name.trim(), file })
+      const voice = await save.mutateAsync({
+        name: name.trim(),
+        file,
+        ...(requiresReferenceText
+          ? { referenceText: referenceText.trim() }
+          : {}),
+      })
       setSuccess(t('voiceCloning.saved', { name: voice.name }))
       setFile(null)
       setName('')
+      setReferenceText('')
       if (upload.current) upload.current.value = ''
     } catch (err) {
       setError(message(err, t('voiceCloning.saveError')))
@@ -229,6 +241,38 @@ export function VoiceCloningTab() {
                   required
                 />
               </div>
+              {requiresReferenceText && (
+                <div className="space-y-2">
+                  <Label htmlFor="clone-reference-text">
+                    {t('voiceCloning.referenceText')}
+                  </Label>
+                  <Textarea
+                    id="clone-reference-text"
+                    value={referenceText}
+                    onChange={(event) => setReferenceText(event.target.value)}
+                    maxLength={4000}
+                    required
+                    disabled={busy}
+                    placeholder={t('voiceCloning.referenceTextPlaceholder')}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t('voiceCloning.referenceTextHint')}
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() =>
+                      setReferenceText(
+                        t('voiceCloning.referenceTextSuggestion'),
+                      )
+                    }
+                  >
+                    {t('voiceCloning.useSuggestedText')}
+                  </Button>
+                </div>
+              )}
               <div className="space-y-3">
                 <Label htmlFor="clone-file">
                   {t('voiceCloning.reference')}
@@ -307,7 +351,13 @@ export function VoiceCloningTab() {
               )}
               <Button
                 type="submit"
-                disabled={!modelId || !name.trim() || !file || busy}
+                disabled={
+                  !modelId ||
+                  !name.trim() ||
+                  !file ||
+                  busy ||
+                  (requiresReferenceText && !referenceText.trim())
+                }
               >
                 {save.isPending
                   ? t('voiceCloning.saving')

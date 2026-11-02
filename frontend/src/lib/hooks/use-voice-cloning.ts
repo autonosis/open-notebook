@@ -6,6 +6,7 @@ export interface CloningModel {
   name: string
   supported: boolean
   reason?: string
+  requires_reference_text?: boolean
   language?: string
 }
 export interface ClonedVoice {
@@ -43,11 +44,20 @@ export function useClonedVoices(modelId: string) {
 export function useSaveClone(modelId: string) {
   const cache = useQueryClient()
   return useMutation({
-    mutationFn: async ({ name, file }: { name: string; file: File }) => {
+    mutationFn: async ({
+      name,
+      file,
+      referenceText,
+    }: {
+      name: string
+      file: File
+      referenceText?: string
+    }) => {
       const data = new FormData()
       data.append('model_id', modelId)
       data.append('name', name)
       data.append('file', file)
+      if (referenceText) data.append('reference_text', referenceText)
       return (
         await apiClient.post<ClonedVoice>(
           '/podcasts/voice-cloning/voices',
