@@ -16,6 +16,7 @@ import { getDateLocale } from '@/lib/utils/date-locale'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { getApiErrorKey } from '@/lib/utils/error-handler'
+import { IngestionStatus } from '@/components/sources/IngestionStatus'
 import { AddSourceDialog } from '@/components/sources/AddSourceDialog'
 
 export default function SourcesPage() {
@@ -323,6 +324,8 @@ export default function SourcesPage() {
             {t('sources.allSourcesDesc')}
           </p>
         </div>
+
+        <IngestionStatus />
 
         <div ref={scrollContainerRef} className="flex-1 rounded-md border overflow-auto">
           <table

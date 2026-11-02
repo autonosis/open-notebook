@@ -1,0 +1,119 @@
+name: open-notebook-local
+x-logging: &local-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+services:
+  surrealdb:
+    logging: *local-logging
+    image: surrealdb/surrealdb:v2.6.3@sha256:77e50f74944f73cc915133830dcc7eb81e76b8a6c065f7f853f364adaf3a945f
+    command: [start, --log, info, --user, '${SURREAL_USER}', --pass, '${SURREAL_PASSWORD}', 'rocksdb:/mydata/mydatabase.db']
+    user: root
+    volumes:
+      - ${OPEN_NOTEBOOK_STATE_DIR}/data/surrealdb:/mydata
+    restart: unless-stopped
+    mem_limit: 2g
+  open_notebook:
+    logging: *local-logging
+    image: open-notebook-local:1.15.0-docling
+    build:
+      context: ../..
+      dockerfile: deployments/macos/Dockerfile
+    environment:
+      OPEN_NOTEBOOK_ENCRYPTION_KEY: '${OPEN_NOTEBOOK_ENCRYPTION_KEY}'
+      OPEN_NOTEBOOK_PASSWORD: '${OPEN_NOTEBOOK_PASSWORD}'
+      SURREAL_URL: ws://surrealdb:8000/rpc
+      SURREAL_USER: '${SURREAL_USER}'
+      SURREAL_PASSWORD: '${SURREAL_PASSWORD}'
+      SURREAL_NAMESPACE: open_notebook
+      SURREAL_DATABASE: open_notebook
+      OPEN_NOTEBOOK_WORKER_MAX_TASKS: '1'
+      OPEN_NOTEBOOK_SINGLE_WORKER_RECOVERY: 'true'
+      DOCLING_PAGE_BATCH_SIZE: '16'
+      ESPERANTO_LLM_TIMEOUT: '420'
+      TTS_BATCH_SIZE: '1'
+      OPEN_NOTEBOOK_ENABLE_DOCLING: 'true'
+      DOCLING_ARTIFACTS_PATH: /app/models/docling
+      DOCLING_CLOUD_PROVIDER: deepseek
+      DOCLING_CLOUD_MODEL_ID: '${DOCLING_CLOUD_MODEL_ID}'
+      OMP_NUM_THREADS: '4'
+      HTTPS_PROXY: http://document_fetch:3128
+      NO_PROXY: localhost,127.0.0.1,gateway,kokoro,surrealdb,crawl4ai,document_fetch
+      CRAWL4AI_API_URL: http://crawl4ai:11235
+      CRAWL4AI_API_TOKEN: '${CRAWL4AI_API_TOKEN}'
+      OPENAI_COMPATIBLE_BASE_URL_STT: http://gateway:11436/v1
+      OPENAI_COMPATIBLE_API_KEY_STT: local-not-a-cloud-key
+      LOGURU_LEVEL: INFO
+      NEXT_TELEMETRY_DISABLED: '1'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      DO_NOT_TRACK: '1'
+      ANONYMIZED_TELEMETRY: 'false'
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+      API_URL: http://localhost:5055
+    volumes:
+      - ${OPEN_NOTEBOOK_STATE_DIR}/data/notebook:/app/data
+      - ${OPEN_NOTEBOOK_STATE_DIR}/models/docling:/app/models/docling:ro
+    healthcheck:
+      test: [CMD, /app/.venv/bin/python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5055/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    stop_grace_period: 2m
+    depends_on:
+      - surrealdb
+    restart: unless-stopped
+    mem_limit: 12g
+  kokoro:
+    logging: *local-logging
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.9.2@sha256:cbcc28802fb5d1eaaba8b91e38b0e872a669e85831c513cf6a29c709cbe25405
+    environment:
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      DO_NOT_TRACK: '1'
+    restart: unless-stopped
+    mem_limit: 3g
+    cpus: 4
+  document_fetch:
+    logging: *local-logging
+    image: lfnovo/open_notebook:1.15.0@sha256:54b2025a4a4853c188f74b9b8246eca8c5480e5dd1babfa92db1038ff2f30212
+    entrypoint: [/usr/local/bin/python, /proxy.py]
+    volumes:
+      - ${OPEN_NOTEBOOK_STATE_DIR}/scripts/document_proxy.py:/proxy.py:ro
+    networks: [default, document_web]
+    mem_limit: 64m
+    restart: unless-stopped
+  crawl4ai:
+    logging: *local-logging
+    image: unclecode/crawl4ai:0.9.2@sha256:bd36741e7bdd35ddc1a05d9183e1d6d8cefb61dd640d944a25d026b76e917690
+    environment:
+      CRAWL4AI_API_TOKEN: '${CRAWL4AI_API_TOKEN}'
+      DO_NOT_TRACK: '1'
+    networks: [default, crawl_web]
+    shm_size: 1g
+    mem_limit: 3g
+    cpus: 4
+    restart: unless-stopped
+  gateway:
+    logging: *local-logging
+    image: nginx:stable-alpine@sha256:0e52bd054126cdc040b1276c0af347aeb02a41b9cfe305d6094767ac30e97949
+    ports:
+      - '127.0.0.1:8502:8502'
+      - '127.0.0.1:5055:5055'
+      - '127.0.0.1:8880:8880'
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    networks: [default, host_access]
+    depends_on: [open_notebook, kokoro]
+    restart: unless-stopped
+    mem_limit: 128m
+networks:
+  default:
+    internal: true
+  document_web:
+    driver: bridge
+  crawl_web:
+    driver: bridge
+  host_access:
+    driver: bridge

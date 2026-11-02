@@ -68,6 +68,8 @@ async def process_source_command(
     Process source content using the source_graph workflow
     """
     start_time = time.time()
+    from open_notebook.observability import event
+    event(input_data.source_id, "Starting extraction", root_command=str(input_data.execution_context.command_id), started_at=start_time, jobs=[], chunks_done=None, chunks_total=None, transformation=None)
 
     try:
         logger.info(f"Starting source processing for source: {input_data.source_id}")

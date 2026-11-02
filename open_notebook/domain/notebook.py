@@ -440,10 +440,9 @@ class Source(ObjectModel):
             return None
 
         try:
-            from surreal_commands import get_command_status
 
-            status = await get_command_status(str(self.command))
-            return status.status if status else "unknown"
+            from open_notebook.observability import snapshot
+            return (await snapshot(self))["status"]
         except Exception as e:
             logger.warning(f"Failed to get command status for {self.command}: {e}")
             return "unknown"
@@ -466,8 +465,11 @@ class Source(ObjectModel):
                 result.get("execution_metadata", {}) if isinstance(result, dict) else {}
             )
 
+            from open_notebook.observability import snapshot
+            progress = await snapshot(self)
             return {
-                "status": status_result.status,
+                **progress,
+                "status": progress["status"],
                 "started_at": execution_metadata.get("started_at"),
                 "completed_at": execution_metadata.get("completed_at"),
                 "error": getattr(status_result, "error_message", None),
@@ -566,6 +568,9 @@ class Source(ObjectModel):
                 {"source_id": str(self.id)},
             )
 
+            from open_notebook.observability import event, read
+            progress = read(str(self.id))
+            event(str(self.id), "Queued for indexing", jobs=progress.get("jobs", [])+[str(command_id)])
             command_id_str = str(command_id)
             logger.info(
                 f"Embed source job submitted for source {self.id}: "
@@ -629,6 +634,9 @@ class Source(ObjectModel):
                 f"Submitted create_insight command {command_id} for source {self.id} "
                 f"(type={insight_type})"
             )
+            from open_notebook.observability import event, read
+            progress = read(str(self.id))
+            event(str(self.id), "Saving transformations", jobs=progress.get("jobs", [])+[str(command_id)])
             return str(command_id)
 
         except Exception as e:
