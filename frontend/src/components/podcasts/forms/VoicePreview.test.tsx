@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { vi, test, expect, beforeEach } from 'vitest'
 import apiClient from '@/lib/api/client'
-import { VoicePreview } from './VoicePreview'
+import { VoicePreview, voiceLabel } from './VoicePreview'
 
 vi.mock('@/lib/api/client', () => ({ default: { get: vi.fn(), post: vi.fn() } }))
 vi.mock('@/lib/hooks/use-translation', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
@@ -59,4 +59,12 @@ test('all catalog voices stay selectable after repeated preview and change cycle
     { model_id: 'model:kokoro', voice_id: 'af_bella' },
     { model_id: 'model:kokoro', voice_id: 'am_michael' },
   ])
+})
+
+ test('voice labels consistently expose name, language and gender without changing IDs', () => {
+  const t = (key: string) => ({ 'voicePreview.americanEnglish': 'American English', 'voicePreview.mandarinChinese': 'Mandarin Chinese', 'voicePreview.female': 'Female', 'voicePreview.male': 'Male' }[key] || key)
+  expect(voiceLabel({ id: 'af_heart', name: 'af_heart' }, t)).toBe('Heart — American English · Female')
+  expect(voiceLabel({ id: 'zm_yunxi', name: 'zm_yunxi' }, t)).toBe('Yunxi — Mandarin Chinese · Male')
+  expect(voiceLabel({ id: 'af_v0bella', name: 'af_v0bella' }, t)).toBe('V0 Bella — American English · Female')
+  expect(voiceLabel({ id: 'custom', name: 'Provider Voice' }, t)).toBe('Provider Voice')
 })
