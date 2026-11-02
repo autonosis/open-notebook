@@ -231,6 +231,7 @@ async def content_process(state: SourceState) -> dict:
     )
 
     from open_notebook.observability import SOURCE, event
+
     SOURCE.set(state["source_id"])
     event(state["source_id"], "Extracting text, formulas and images")
     url = content_state.get("url") or ""
@@ -267,7 +268,11 @@ async def content_process(state: SourceState) -> dict:
         except Exception as e:
             logger.warning(f"Failed to delete source file {file_path}: {e}")
 
-    event(state["source_id"], "Saving extracted text", text_chars=len(processed.content or ""))
+    event(
+        state["source_id"],
+        "Saving extracted text",
+        text_chars=len(processed.content or ""),
+    )
     return {"extraction": processed}
 
 
@@ -337,12 +342,19 @@ async def transform_content(state: TransformationState) -> Optional[dict]:
     transformation: Transformation = state["transformation"]
 
     from open_notebook.observability import event
-    event(str(source.id), "Generating transformations", transformation=transformation.title)
+
+    event(
+        str(source.id),
+        "Generating transformations",
+        transformation=transformation.title,
+    )
     logger.debug(f"Applying transformation {transformation.name}")
     # LangGraph accepts a partial state dict at runtime, but its typed
     # overloads require the full state type (langgraph typing limitation).
     result = await transform_graph.ainvoke(  # type: ignore[call-overload]
-        dict(input_text=content, transformation=transformation),
+        dict(
+            input_text=content, transformation=transformation, source_id=str(source.id)
+        ),
         config=RunnableConfig(configurable={"model_id": transformation.model_id}),
     )
     await source.add_insight(transformation.title, result["output"])
