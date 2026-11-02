@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api.podcast_service import (
     PodcastGenerationRequest,
@@ -426,3 +426,27 @@ async def delete_podcast_episode(episode_id: str):
     except Exception as e:
         logger.error(f"Error deleting podcast episode: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to delete episode")
+
+
+class VoicePreviewRequest(BaseModel):
+    model_id: str
+    voice_id: str = Field(min_length=1, max_length=100, pattern=r"^[A-Za-z0-9_.+:-]+$")
+
+
+@router.get("/podcasts/voices")
+async def list_preview_voices(model_id: str):
+    from api.voice_preview_service import voices
+
+    return await voices(model_id)
+
+
+@router.post("/podcasts/voices/preview")
+async def preview_voice(request: VoicePreviewRequest):
+    from api.voice_preview_service import preview
+
+    path = await preview(request.model_id, request.voice_id)
+    return FileResponse(
+        path,
+        media_type="audio/mpeg",
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
