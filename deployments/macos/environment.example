@@ -1,0 +1,8 @@
+# Template only. Generate unique values locally; never commit a populated file.
+OPEN_NOTEBOOK_STATE_DIR=/absolute/path/to/OpenNotebook
+OPEN_NOTEBOOK_ENCRYPTION_KEY=replace-with-a-generated-encryption-key
+OPEN_NOTEBOOK_PASSWORD=replace-with-a-strong-unique-password
+SURREAL_USER=root
+SURREAL_PASSWORD=replace-with-a-strong-unique-password
+CRAWL4AI_API_TOKEN=replace-with-a-strong-unique-token
+DOCLING_CLOUD_MODEL_ID=replace-with-the-registered-DeepSeek-Flash-model-record-id

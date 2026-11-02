@@ -346,6 +346,12 @@ async def get_sources(
                 command_id = str(command)
                 status = "unknown"
 
+            from open_notebook.observability import snapshot
+
+            source = await Source.get(str(row["id"]))
+            progress = await snapshot(source)
+            status = progress["status"]
+            processing_info = progress
             response_list.append(
                 SourceListResponse(
                     id=row["id"],
@@ -863,6 +869,9 @@ async def get_source_status(source_id: str):
             status = await source.get_status()
             processing_info = await source.get_processing_progress()
 
+            status = (
+                processing_info.get("status", status) if processing_info else status
+            )
             # Generate descriptive message based on status
             if status == "completed":
                 message = "Source processing completed successfully"
@@ -949,6 +958,8 @@ async def retry_source_processing(source_id: str):
                         status_code=400,
                         detail="Source is already processing. Cannot retry while processing is active.",
                     )
+            except HTTPException:
+                raise
             except Exception as e:
                 logger.warning(
                     f"Failed to check current status for source {source_id}: {e}"
@@ -965,10 +976,16 @@ async def retry_source_processing(source_id: str):
         )
         notebook_ids = [str(nb_id) for nb_id in references] if references else []
 
-        if not notebook_ids:
-            raise HTTPException(
-                status_code=400, detail="Source is not associated with any notebooks"
+        # Global-library uploads legitimately have no notebook association.
+        previous = (
+            await repo_query(
+                "SELECT args.transformations AS transformations FROM $id",
+                {"id": source.command},
             )
+            if source.command
+            else []
+        )
+        transformations = (previous[0].get("transformations") or []) if previous else []
 
         # Prepare content_state based on source asset
         content_state = {}
@@ -1004,7 +1021,7 @@ async def retry_source_processing(source_id: str):
                 source_id=str(source.id),
                 content_state=content_state,
                 notebook_ids=notebook_ids,
-                transformations=[],  # Use default transformations on retry
+                transformations=transformations,  # Preserve originally requested work
                 embed=True,  # Always embed on retry
             )
 

@@ -163,6 +163,8 @@ async def generate_embeddings(
         lambda: _get_size_metrics()[3],
     )
 
+    from open_notebook.observability import batch_event
+    await batch_event(command_id, 0, len(texts))
     all_embeddings: List[List[float]] = []
     total_batches = (len(texts) + EMBEDDING_BATCH_SIZE - 1) // EMBEDDING_BATCH_SIZE
 
@@ -175,6 +177,7 @@ async def generate_embeddings(
             try:
                 batch_embeddings = await embedding_model.aembed(batch)
                 all_embeddings.extend(batch_embeddings)
+                await batch_event(command_id, len(all_embeddings), len(texts))
                 break
             except Exception as e:
                 cmd_context = f" (command: {command_id})" if command_id else ""

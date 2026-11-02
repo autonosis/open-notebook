@@ -230,6 +230,9 @@ async def content_process(state: SourceState) -> dict:
         f"docling_vision={config_kwargs.get('docling_vision', 'auto')})"
     )
 
+    from open_notebook.observability import SOURCE, event
+    SOURCE.set(state["source_id"])
+    event(state["source_id"], "Extracting text, formulas and images")
     url = content_state.get("url") or ""
     try:
         processed = await extract_content(
@@ -264,6 +267,7 @@ async def content_process(state: SourceState) -> dict:
         except Exception as e:
             logger.warning(f"Failed to delete source file {file_path}: {e}")
 
+    event(state["source_id"], "Saving extracted text", text_chars=len(processed.content or ""))
     return {"extraction": processed}
 
 
@@ -332,6 +336,8 @@ async def transform_content(state: TransformationState) -> Optional[dict]:
         return None
     transformation: Transformation = state["transformation"]
 
+    from open_notebook.observability import event
+    event(str(source.id), "Generating transformations", transformation=transformation.title)
     logger.debug(f"Applying transformation {transformation.name}")
     # LangGraph accepts a partial state dict at runtime, but its typed
     # overloads require the full state type (langgraph typing limitation).
