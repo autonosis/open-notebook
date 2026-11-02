@@ -39,6 +39,7 @@ export function VoiceCloningTab() {
   const [seconds, setSeconds] = useState(0)
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState('')
+  const [invalidPreview, setInvalidPreview] = useState(false)
   const [success, setSuccess] = useState('')
   const [showArchived, setShowArchived] = useState(false)
   const [profile, setProfile] = useState<SpeakerProfile | undefined>()
@@ -56,10 +57,9 @@ export function VoiceCloningTab() {
     }
   }, [])
   useEffect(() => {
-    if (!file) {
-      setSample(null)
-      return
-    }
+    setSample(null)
+    setInvalidPreview(false)
+    if (!file) return
     const url = URL.createObjectURL(file)
     const resource = new URL(url)
     if (
@@ -67,12 +67,12 @@ export function VoiceCloningTab() {
       resource.origin !== window.location.origin
     ) {
       URL.revokeObjectURL(url)
-      setError(t('voiceCloning.saveError'))
+      setInvalidPreview(true)
       return
     }
     setSample(url)
     return () => URL.revokeObjectURL(url)
-  }, [file, t])
+  }, [file])
   useEffect(() => {
     if (!recording) return
     const timer = setInterval(
@@ -320,9 +320,9 @@ export function VoiceCloningTab() {
                   />
                 )}
               </div>
-              {error && (
+              {(error || invalidPreview) && (
                 <p role="alert" className="text-sm text-destructive">
-                  {error}
+                  {invalidPreview ? t('voiceCloning.saveError') : error}
                 </p>
               )}
               {success && (

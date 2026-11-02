@@ -121,3 +121,15 @@ def test_paths_and_oversized_upload_rejected(tmp_path):
             store.get(vid)
     with pytest.raises(ValueError):
         store.create("Test", b"x" * (10 * 1024 * 1024 + 1))
+
+
+def test_existing_voice_cannot_resolve_through_a_symlink(tmp_path):
+    root = tmp_path / "voices"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "voice.json").write_text("{}")
+    (root / ("clone_" + "a" * 32)).symlink_to(outside, target_is_directory=True)
+    store = VoiceStore({"clones_dir": str(root)})
+    with pytest.raises(ValueError):
+        store.get("clone_" + "a" * 32)

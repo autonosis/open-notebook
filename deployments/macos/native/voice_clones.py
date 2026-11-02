@@ -47,9 +47,11 @@ class VoiceStore:
             return []
         with self.lock:
             rows = [
-                self.get(p.name)
+                json.loads((p / "voice.json").read_text())
                 for p in self.root.glob("clone_*")
-                if (p / "voice.json").is_file()
+                if not p.is_symlink()
+                and re.fullmatch(r"clone_[a-f0-9]{32}", p.name)
+                and (p / "voice.json").is_file()
             ]
         return sorted(
             (r for r in rows if archived or not r["archived"]),
