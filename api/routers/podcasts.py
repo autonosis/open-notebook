@@ -358,6 +358,17 @@ async def retry_podcast_episode(episode_id: str):
     try:
         episode = await PodcastService.get_episode(episode_id)
 
+        if (episode.transcript or {}).get("audio_edit"):
+            from api.podcast_edit_service import retry_audio
+
+            return await retry_audio(episode_id)
+
+        if (episode.transcript or {}).get("draft"):
+            from api.podcast_edit_service import regenerate_audio
+            from open_notebook.podcasts.transcripts import revision
+
+            return await regenerate_audio(episode_id, revision(episode.transcript))
+
         # Validate episode is in a failed state
         detail = await episode.get_job_detail()
         if detail["status"] not in ("failed", "error"):
@@ -449,4 +460,39 @@ async def preview_voice(request: VoicePreviewRequest):
         path,
         media_type="audio/mpeg",
         headers={"Cache-Control": "private, max-age=3600"},
+    )
+
+
+class TranscriptTurn(BaseModel):
+    speaker: str
+    dialogue: str = Field(min_length=1, max_length=12000)
+
+
+class TranscriptDraftRequest(BaseModel):
+    expected_revision: int = Field(ge=0)
+    entries: List[TranscriptTurn] = Field(min_length=1, max_length=2000)
+
+
+class AudioRevisionRequest(BaseModel):
+    expected_revision: int = Field(ge=0)
+    reuse_unchanged: bool = True
+
+
+@router.put("/podcasts/episodes/{episode_id}/transcript")
+async def save_transcript_draft(episode_id: str, request: TranscriptDraftRequest):
+    from api.podcast_edit_service import save_draft
+
+    return await save_draft(
+        episode_id,
+        request.expected_revision,
+        [entry.model_dump() for entry in request.entries],
+    )
+
+
+@router.post("/podcasts/episodes/{episode_id}/regenerate-audio")
+async def regenerate_episode_audio(episode_id: str, request: AudioRevisionRequest):
+    from api.podcast_edit_service import regenerate_audio
+
+    return await regenerate_audio(
+        episode_id, request.expected_revision, request.reuse_unchanged
     )

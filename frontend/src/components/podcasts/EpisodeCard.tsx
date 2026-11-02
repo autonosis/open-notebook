@@ -1,8 +1,9 @@
 'use client'
 
 import { PodcastPipeline } from './PodcastPipeline'
+import { TranscriptEditor } from './TranscriptEditor'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { getDateLocale } from '@/lib/utils/date-locale'
 import { InfoIcon, RefreshCcw, Trash2 } from 'lucide-react'
@@ -112,15 +113,6 @@ type OutlineData = {
   segments?: OutlineSegment[]
 }
 
-type TranscriptEntry = {
-  speaker?: string
-  dialogue?: string
-}
-
-type TranscriptData = {
-  transcript?: TranscriptEntry[]
-}
-
 function extractOutlineSegments(outline: unknown): OutlineSegment[] {
   if (outline && typeof outline === 'object' && 'segments' in outline) {
     const data = outline as OutlineData
@@ -145,24 +137,16 @@ function formatModelLabel(
   return `${provider || legacyProvider || '—'} / ${name || legacyName || '—'}`
 }
 
-function extractTranscriptEntries(transcript: unknown): TranscriptEntry[] {
-  if (transcript && typeof transcript === 'object' && 'transcript' in transcript) {
-    const data = transcript as TranscriptData
-    if (Array.isArray(data.transcript)) {
-      return data.transcript
-    }
-  }
-  return []
-}
-
 export function EpisodeCard({ episode, onDelete, deleting, onRetry, retrying }: EpisodeCardProps) {
   const { t, language } = useTranslation()
   const [audioSrc, setAudioSrc] = useState<string | undefined>()
   const [audioError, setAudioError] = useState<string | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [transcriptDirty, setTranscriptDirty] = useState(false)
+  const [discardOpen, setDiscardOpen] = useState(false)
+  const nextEpisode = useRef<string | null>(null)
 
   const outlineSegments = useMemo(() => extractOutlineSegments(episode.outline), [episode.outline])
-  const transcriptEntries = useMemo(() => extractTranscriptEntries(episode.transcript), [episode.transcript])
 
   useEffect(() => {
     let revokeUrl: string | undefined
@@ -227,7 +211,7 @@ export function EpisodeCard({ episode, onDelete, deleting, onRetry, retrying }: 
   const isFailed = FAILED_EPISODE_STATUSES.includes(episode.job_status as EpisodeStatus)
 
   return (
-    <Card>
+    <Card id={episode.id} tabIndex={-1}>
       <CardContent className="space-y-4 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
@@ -243,14 +227,25 @@ export function EpisodeCard({ episode, onDelete, deleting, onRetry, retrying }: 
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+            <Dialog open={detailsOpen} onOpenChange={open => {
+              if (!open && transcriptDirty) { setDiscardOpen(true); return }
+              setDetailsOpen(open)
+            }}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
                   <InfoIcon className="mr-2 h-4 w-4" /> {t('podcasts.details')}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="flex h-[85dvh] w-[min(90vw,720px)] flex-col overflow-hidden">
-                <DialogHeader>
+              <DialogContent onCloseAutoFocus={event => {
+                if (nextEpisode.current) {
+                  event.preventDefault()
+                  const target = document.getElementById(nextEpisode.current)
+                  target?.focus({ preventScroll: true })
+                  target?.scrollIntoView({ block: 'start' })
+                  nextEpisode.current = null
+                }
+              }} className="flex h-[90dvh] w-[min(96vw,900px)] flex-col overflow-hidden">
+                <DialogHeader className="pr-6">
                   <DialogTitle>{episode.name}</DialogTitle>
                   <DialogDescription>
                     {episode.episode_profile?.name || t('common.unknown')}
@@ -379,24 +374,19 @@ export function EpisodeCard({ episode, onDelete, deleting, onRetry, retrying }: 
                       </ScrollArea>
                     </TabsContent>
 
-                    <TabsContent value="transcript" className="flex-1 overflow-hidden">
-                      <ScrollArea className="h-full pr-4 space-y-3">
-                        {transcriptEntries.length > 0 ? (
-                          transcriptEntries.map((entry, index) => (
-                            <div key={index} className="rounded border bg-muted/20 p-3 text-xs space-y-1">
-                              <p className="font-semibold text-foreground">{entry.speaker ?? t('podcasts.speaker')}</p>
-                              <p className="text-muted-foreground whitespace-pre-wrap">{entry.dialogue ?? ''}</p>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-xs text-muted-foreground">{t('podcasts.noTranscript')}</p>
-                        )}
-                      </ScrollArea>
+                    <TabsContent forceMount value="transcript" className="min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden">
+                      <TranscriptEditor episode={episode} onDirtyChange={setTranscriptDirty} onGoToEpisode={id => { nextEpisode.current = id; setDetailsOpen(false) }} />
                     </TabsContent>
                   </Tabs>
                 </div>
               </DialogContent>
             </Dialog>
+            <AlertDialog open={discardOpen} onOpenChange={setDiscardOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader><AlertDialogTitle>{t('transcriptEditor.discardTitle')}</AlertDialogTitle><AlertDialogDescription>{t('transcriptEditor.discardDescription')}</AlertDialogDescription></AlertDialogHeader>
+                <AlertDialogFooter><AlertDialogCancel>{t('transcriptEditor.keepEditing')}</AlertDialogCancel><AlertDialogAction onClick={()=>{setTranscriptDirty(false);setDiscardOpen(false);setDetailsOpen(false)}}>{t('transcriptEditor.discard')}</AlertDialogAction></AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             {isFailed && onRetry ? (
               <Button
                 variant="outline"

@@ -14,6 +14,7 @@ from .embedding_commands import (
     embed_source_command,
     rebuild_embeddings_command,
 )
+from .podcast_audio_commands import regenerate_podcast_audio
 from .podcast_commands import generate_podcast_command
 from .source_commands import process_source_command
 
@@ -25,5 +26,6 @@ __all__ = [
     "rebuild_embeddings_command",
     # Other commands
     "generate_podcast_command",
+    "regenerate_podcast_audio",
     "process_source_command",
 ]

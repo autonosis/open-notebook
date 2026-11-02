@@ -16,6 +16,7 @@ COPY deployments/macos/enable_cloud_options.py /tmp/enable_cloud_options.py
 RUN /app/.venv/bin/python /tmp/enable_cloud_options.py
 COPY api/ /app/api/
 COPY commands/ /app/commands/
+COPY prompts/podcast/ /app/prompts/podcast/
 COPY open_notebook/ /app/open_notebook/
 COPY deployments/macos/redact_worker.py /tmp/redact_worker.py
 RUN /app/.venv/bin/python /tmp/redact_worker.py

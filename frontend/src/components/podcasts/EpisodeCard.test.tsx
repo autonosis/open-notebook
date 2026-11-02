@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, fireEvent } from '@testing-library/react'
 
 import { EpisodeCard } from './EpisodeCard'
@@ -39,7 +40,7 @@ function makeEpisode(overrides: Partial<PodcastEpisode> = {}): PodcastEpisode {
 }
 
 function renderAndOpenDetails(episode: PodcastEpisode) {
-  render(<EpisodeCard episode={episode} onDelete={vi.fn()} />)
+  render(<QueryClientProvider client={new QueryClient()}><EpisodeCard episode={episode} onDelete={vi.fn()} /></QueryClientProvider>)
   fireEvent.click(screen.getByText('podcasts.details'))
 }
 
@@ -134,4 +135,16 @@ describe('EpisodeCard model details', () => {
 
     expect(screen.getAllByText('— / —')).toHaveLength(3)
   })
+})
+
+
+it('guards unsaved transcript edits when closing details', () => {
+  renderAndOpenDetails(makeEpisode({transcript:{transcript:[{speaker:'Host',dialogue:'Original spoken text.'}]}}))
+  fireEvent.click(screen.getByText('podcasts.transcriptTab'))
+  fireEvent.click(screen.getByText('transcriptEditor.edit'))
+  fireEvent.change(screen.getByRole('textbox',{name:'transcriptEditor.turn'}),{target:{value:'Unsaved correction.'}})
+  fireEvent.click(screen.getByRole('button',{name:'common.close'}))
+  expect(screen.getByText('transcriptEditor.discardTitle')).toBeInTheDocument()
+  fireEvent.click(screen.getByText('transcriptEditor.keepEditing'))
+  expect((screen.getByRole('textbox',{name:'transcriptEditor.turn'}) as HTMLTextAreaElement).value).toBe('Unsaved correction.')
 })
