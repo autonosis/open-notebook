@@ -14,6 +14,7 @@ import {
   type ClonedVoice,
 } from '@/lib/hooks/use-voice-cloning'
 import { VoiceAudition } from './forms/VoicePreview'
+import { ReferenceRecordingPreview } from './ReferenceRecordingPreview'
 import { SpeakerProfileFormDialog } from './forms/SpeakerProfileFormDialog'
 import type { SpeakerProfile } from '@/lib/types/podcasts'
 
@@ -34,12 +35,10 @@ export function VoiceCloningTab() {
   const archive = useArchiveClone(modelId)
   const [name, setName] = useState('')
   const [file, setFile] = useState<File | null>(null)
-  const [sample, setSample] = useState<string | null>(null)
   const [recording, setRecording] = useState(false)
   const [seconds, setSeconds] = useState(0)
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState('')
-  const [invalidPreview, setInvalidPreview] = useState(false)
   const [success, setSuccess] = useState('')
   const [showArchived, setShowArchived] = useState(false)
   const [profile, setProfile] = useState<SpeakerProfile | undefined>()
@@ -56,23 +55,6 @@ export function VoiceCloningTab() {
       stream.current?.getTracks().forEach((track) => track.stop())
     }
   }, [])
-  useEffect(() => {
-    setSample(null)
-    setInvalidPreview(false)
-    if (!file) return
-    const url = URL.createObjectURL(file)
-    const resource = new URL(url)
-    if (
-      resource.protocol !== 'blob:' ||
-      resource.origin !== window.location.origin
-    ) {
-      URL.revokeObjectURL(url)
-      setInvalidPreview(true)
-      return
-    }
-    setSample(url)
-    return () => URL.revokeObjectURL(url)
-  }, [file])
   useEffect(() => {
     if (!recording) return
     const timer = setInterval(
@@ -306,23 +288,16 @@ export function VoiceCloningTab() {
                     {file.name}
                   </p>
                 )}
-                {sample && (
-                  <audio
-                    controls
-                    src={
-                      new URL(sample).protocol === 'blob:' &&
-                      new URL(sample).origin === window.location.origin
-                        ? sample
-                        : undefined
-                    }
-                    aria-label={t('voiceCloning.referencePlayback')}
-                    className="w-full min-w-0"
+                {file && (
+                  <ReferenceRecordingPreview
+                    file={file}
+                    disabled={recording || starting}
                   />
                 )}
               </div>
-              {(error || invalidPreview) && (
+              {error && (
                 <p role="alert" className="text-sm text-destructive">
-                  {invalidPreview ? t('voiceCloning.saveError') : error}
+                  {error}
                 </p>
               )}
               {success && (

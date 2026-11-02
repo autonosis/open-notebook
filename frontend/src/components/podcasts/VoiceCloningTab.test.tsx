@@ -195,12 +195,44 @@ test('recording produces a playable upload and stops all microphone tracks', asy
   )
 })
 
-test('reference playback rejects unexpected non-blob resource URLs', async () => {
-  URL.createObjectURL = vi.fn(() => 'javascript:alert(1)')
+test('reference playback decodes binary audio without creating file URLs', async () => {
+  const start = vi.fn()
+  const close = vi.fn().mockResolvedValue(undefined)
+  const decode = vi.fn().mockResolvedValue({ duration: 8 })
+  vi.stubGlobal(
+    'AudioContext',
+    class {
+      destination = {}
+      resume = vi.fn().mockResolvedValue(undefined)
+      close = close
+      decodeAudioData = decode
+      createBufferSource() {
+        return {
+          buffer: null,
+          connect: vi.fn(),
+          start,
+          stop: vi.fn(),
+          onended: null,
+        }
+      }
+    },
+  )
   render(<VoiceCloningTab />)
-  fireEvent.change(screen.getByLabelText('voiceCloning.reference'), {
-    target: { files: [new File(['audio'], 'recording.wav')] },
+  const file = new File(['audio'], 'recording.wav')
+  Object.defineProperty(file, 'arrayBuffer', {
+    value: async () => new ArrayBuffer(16),
   })
-  expect(await screen.findByRole('alert')).toBeTruthy()
-  expect(screen.queryByLabelText('voiceCloning.referencePlayback')).toBeNull()
+  fireEvent.change(screen.getByLabelText('voiceCloning.reference'), {
+    target: { files: [file] },
+  })
+  fireEvent.click(
+    screen.getByRole('button', { name: 'voiceCloning.playRecording' }),
+  )
+  await waitFor(() => expect(start).toHaveBeenCalled())
+  expect(decode).toHaveBeenCalled()
+  expect(URL.createObjectURL).not.toHaveBeenCalled()
+  fireEvent.click(
+    screen.getByRole('button', { name: 'voiceCloning.stopPlayback' }),
+  )
+  expect(close).toHaveBeenCalled()
 })
