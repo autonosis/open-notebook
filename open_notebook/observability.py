@@ -211,6 +211,7 @@ async def snapshot(source):
         insights_count=len(insights),
         pages_done=data.get("pages_done"),
         pages_total=data.get("pages_total"),
+        cached_pages=data.get("cached_pages", 0),
         page_batch_start=data.get("page_batch_start"),
         page_batch_end=data.get("page_batch_end"),
         chunks_done=data.get("chunks_done"),
@@ -222,9 +223,11 @@ async def snapshot(source):
                 str(r.get("error_message", "")).startswith("Worker stopped")
                 for r in failed
             )
+            else "Processing failed: " + data["error"]
+            if data.get("error")
             else "A processing job failed; inspect correlated local logs."
         )
-        if failed
+        if failed or data.get("error")
         else None,
         jobs=[
             dict(

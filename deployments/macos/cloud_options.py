@@ -56,7 +56,7 @@ async def configure_cloud_enrichment(options):
     options.chart_extraction_options.chart2code = False
 
 
-def extract_bounded(converter, source, fmt):
+def extract_bounded(converter, source, fmt, settings=None):
     """Release rendered PDF pages between batches instead of retaining a book."""
     import gc
     import json
@@ -79,6 +79,29 @@ def extract_bounded(converter, source, fmt):
     batch_size = int(os.environ.get("DOCLING_PAGE_BATCH_SIZE", "16"))
     if batch_size < 1 or batch_size > 64:
         raise ValueError("DOCLING_PAGE_BATCH_SIZE must be between 1 and 64")
+    from importlib.metadata import version
+
+    from open_notebook.config import DATA_FOLDER
+    from open_notebook.extraction_checkpoints import BatchCheckpoints, fingerprint
+
+    checkpoints = None
+    cached_pages = 0
+    if pages:
+        identity = dict(
+            settings or {},
+            format=fmt,
+            batch_size=batch_size,
+            docling=version("docling"),
+            schema=1,
+            integration=__import__("hashlib")
+            .sha256(Path(__file__).read_bytes())
+            .hexdigest(),
+            cloud_model=os.environ.get("DOCLING_CLOUD_MODEL_ID"),
+            cloud_provider=os.environ.get("DOCLING_CLOUD_PROVIDER"),
+        )
+        checkpoints = BatchCheckpoints(
+            Path(DATA_FOLDER) / "extraction_checkpoints", fingerprint(source, identity)
+        )
     pieces = []
     for start in range(1, (pages or 1) + 1, batch_size):
         end = min(start + batch_size - 1, pages) if pages else None
@@ -90,6 +113,20 @@ def extract_bounded(converter, source, fmt):
             page_batch_start=start,
             page_batch_end=end,
         )
+        cached = checkpoints.read(start, end) if checkpoints else None
+        if cached is not None:
+            pieces.append(cached)
+            cached_pages += end - start + 1
+            event(
+                sid,
+                "Extracting text, formulas and images",
+                pages_done=end,
+                pages_total=pages,
+                cached_pages=cached_pages,
+                page_batch_start=start,
+                page_batch_end=end,
+            )
+            continue
         result = (
             converter.convert(source, page_range=(start, end))
             if pages
@@ -109,6 +146,8 @@ def extract_bounded(converter, source, fmt):
             pieces.append(
                 f"\n\n<!-- PDF pages {start}-{end} -->\n\n" + doc.export_to_markdown()
             )
+        if checkpoints:
+            checkpoints.write(start, end, pieces[-1])
         del doc, result
         gc.collect()
         event(

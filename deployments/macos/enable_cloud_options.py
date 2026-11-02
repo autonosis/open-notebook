@@ -39,7 +39,8 @@ assert s.count(old) == 1, "Pinned converter export changed; review bounded extra
 s = s.replace(
     old,
     """    from local_docling_cloud import extract_bounded
-    output = extract_bounded(converter, source, config.docling_output_format)
+    fmt = config.docling_output_format
+    output = extract_bounded(converter, source, fmt, settings={"ocr": config.docling_ocr, "formulas": config.docling_formulas, "vision": config.docling_vision})
 """,
 )
 p.write_text(s)
