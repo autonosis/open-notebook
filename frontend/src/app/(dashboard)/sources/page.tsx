@@ -102,7 +102,7 @@ export default function SourcesPage() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (sources.length === 0) return
+      if (sources.length === 0 || !tableRef.current?.contains(e.target as Node) || (e.target as HTMLElement).closest('button, input, textarea, select, a')) return
 
       switch (e.key) {
         case 'ArrowDown':
@@ -317,7 +317,7 @@ export default function SourcesPage() {
     }
 
     return (<>
-      <div className="flex flex-col h-full w-full max-w-none px-6 py-6">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col w-full max-w-none p-4 sm:p-6">
         <div className="mb-6 flex-shrink-0">
           <h1 className="font-display text-2xl font-bold tracking-tight">{t('sources.allSources')}</h1>
           <p className="mt-2 text-muted-foreground">
@@ -327,43 +327,43 @@ export default function SourcesPage() {
 
         <IngestionStatus />
 
-        <div ref={scrollContainerRef} className="flex-1 rounded-md border overflow-auto">
+        <div ref={scrollContainerRef} className="min-h-0 min-w-0 flex-1 rounded-md border overflow-y-auto">
           <table
             ref={tableRef}
             tabIndex={0}
-            className="w-full min-w-[920px] outline-none table-fixed"
+            className="w-full outline-none table-fixed"
           >
             <colgroup>
-              <col className="w-[120px]" />
-              <col className="w-auto" />
-              <col className="w-[140px]" />
-              <col className="w-[140px]" />
-              <col className="w-[100px]" />
-              <col className="w-[100px]" />
-              <col className="w-[100px]" />
+              <col className="hidden w-20 sm:table-column" />
+              <col />
+              <col className="hidden w-32 2xl:table-column" />
+              <col className="hidden w-32 lg:table-column" />
+              <col className="hidden w-24 xl:table-column" />
+              <col className="hidden w-24 2xl:table-column" />
+              <col className="w-14" />
             </colgroup>
             <thead className="sticky top-0 bg-background z-10">
               <tr className="border-b">
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
+                <th className="hidden h-12 px-2 text-left align-middle font-medium text-muted-foreground sm:table-cell">
                   {renderSortableHeader('type', t('common.type'))}
                 </th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
+                <th className="h-12 px-2 text-left align-middle font-medium text-muted-foreground">
                   {renderSortableHeader('title', t('common.title'))}
                 </th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden sm:table-cell">
+                <th className="h-12 px-2 text-left align-middle font-medium text-muted-foreground hidden 2xl:table-cell">
                   {renderSortableHeader('created', t('common.created_label'))}
                 </th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden sm:table-cell">
+                <th className="h-12 px-2 text-left align-middle font-medium text-muted-foreground hidden lg:table-cell">
                   {renderSortableHeader('updated', t('common.updated_label'))}
                 </th>
-                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground hidden md:table-cell">
+                <th className="h-12 px-2 text-center align-middle font-medium text-muted-foreground hidden xl:table-cell">
                   {renderSortableHeader('insights_count', t('sources.insights'), 'center')}
                 </th>
-                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground hidden lg:table-cell">
+                <th className="h-12 px-2 text-center align-middle font-medium text-muted-foreground hidden 2xl:table-cell">
                   {renderSortableHeader('embedded', t('sources.embedded'), 'center')}
                 </th>
-                <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
-                  {t('common.actions')}
+                <th className="h-12 px-2 text-right align-middle font-medium text-muted-foreground">
+                  <span className="sr-only">{t('common.actions')}</span>
                 </th>
               </tr>
             </thead>
@@ -380,7 +380,7 @@ export default function SourcesPage() {
                       : "hover:bg-[var(--surface-raised)]"
                   )}
                 >
-                  <td className="h-12 px-4">
+                  <td className="hidden h-12 px-2 sm:table-cell">
                     <div className="flex items-center gap-2">
                       <span
                         aria-hidden
@@ -391,34 +391,35 @@ export default function SourcesPage() {
                       </span>
                     </div>
                   </td>
-                  <td className="h-12 px-4">
-                    <div className="flex flex-col overflow-hidden">
-                      <span className="font-medium truncate">
+                  <td className="h-12 px-3 py-3">
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <span className="font-medium [overflow-wrap:anywhere]">
                         {source.title || t('sources.untitledSource')}
                       </span>
+                      <span className="text-xs text-muted-foreground sm:hidden">{getSourceType(source)}</span>
                       {source.asset?.url && (
-                        <span className="text-xs text-muted-foreground truncate">
+                        <span className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
                           {source.asset.url}
                         </span>
                       )}
                     </div>
                   </td>
-                  <td className="h-12 px-4 text-muted-foreground text-sm hidden sm:table-cell">
+                  <td className="h-12 px-2 text-muted-foreground text-sm hidden 2xl:table-cell">
                     {formatDistanceToNow(new Date(source.created), { 
                       addSuffix: true,
                       locale: getDateLocale(language)
                     })}
                   </td>
-                  <td className="h-12 px-4 text-muted-foreground text-sm hidden sm:table-cell">
+                  <td className="h-12 px-2 text-muted-foreground text-sm hidden lg:table-cell">
                     {formatDistanceToNow(new Date(source.updated), {
                       addSuffix: true,
                       locale: getDateLocale(language)
                     })}
                   </td>
-                  <td className="h-12 px-4 text-center hidden md:table-cell">
+                  <td className="h-12 px-2 text-center hidden xl:table-cell">
                     <span className="text-sm font-medium">{source.insights_count || 0}</span>
                   </td>
-                  <td className="h-12 px-4 text-center hidden lg:table-cell">
+                  <td className="h-12 px-2 text-center hidden 2xl:table-cell">
                     <span
                       className={cn(
                         "inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-medium",
@@ -430,11 +431,12 @@ export default function SourcesPage() {
                       {source.embedded ? t('sources.yes') : t('sources.no')}
                     </span>
                   </td>
-                  <td className="h-12 px-4 text-right">
+                  <td className="h-12 px-2 text-right">
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={(e) => handleDeleteClick(e, source)}
+                      aria-label={`${t('common.delete')}: ${source.title || t('sources.untitledSource')}`}
                       className="text-destructive hover:text-destructive"
                     >
                       <Trash2 className="h-4 w-4" />

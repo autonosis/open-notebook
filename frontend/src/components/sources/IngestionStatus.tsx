@@ -20,8 +20,8 @@ export function IngestionStatus() {
     retry: 1,
   })
   return (
-    <section aria-label="Source processing activity" className="mb-4 rounded-md border p-4 flex-shrink-0 max-h-[40vh] overflow-auto">
-      <div className="flex justify-between gap-4 mb-2">
+    <section aria-label="Source processing activity" className="mb-4 rounded-md border p-4 flex-shrink-0 max-h-[40vh] overflow-y-auto [overflow-wrap:anywhere]">
+      <div className="flex flex-wrap justify-between gap-2 mb-2">
         <h2 className="font-semibold">Processing activity</h2>
         <span className="text-xs text-muted-foreground">{error ? 'Status refresh failed — displayed data may be stale' : dataUpdatedAt ? 'Refreshes every 3 seconds' : 'Loading status…'}</span>
       </div>
@@ -36,7 +36,7 @@ export function IngestionStatus() {
             <p>{source.text_chars.toLocaleString()} extracted characters · {source.embedded_chunks.toLocaleString()} indexed chunks · {source.insights_count} saved transformations</p>
             {source.chunks_total != null && <p>Embedding generation: {source.chunks_done ?? 0} / {source.chunks_total} chunks. Search becomes ready after all chunks are saved.</p>}
             {source.transformation && <p>Transformation: {source.transformation}</p>}
-            {source.pages_total != null && <p>PDF extraction: {source.pages_done ?? 0} / {source.pages_total} pages completed{source.status === 'running' && source.page_batch_start ? ` · current batch ${source.page_batch_start}–${source.page_batch_end}` : ''}.</p>}
+            {source.pages_total != null && <p>PDF extraction: {source.pages_done ?? 0} / {source.pages_total} pages completed{source.status === 'running' && (source.pages_done ?? 0) < source.pages_total && source.page_batch_start ? ` · current batch ${source.page_batch_start}–${source.page_batch_end}` : ''}.</p>}
             {source.stage.includes('Extract') && source.pages_total == null && <p>Text/OCR, formula and image analysis are running. Page count is not yet available.</p>}
             {source.warnings?.map(warning => <p key={warning} className="text-muted-foreground">{warning}</p>)}
             {source.error && <p className="text-destructive">{source.error}</p>}
