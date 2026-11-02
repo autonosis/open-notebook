@@ -34,6 +34,7 @@ VOICE_CATALOG = {
         "Ono_Anna": "Ono Anna — Japanese · Female",
         "Sohee": "Sohee — Korean · Female",
     },
+    "qwen3-tts-base": {},
     "chatterbox": {
         "synthetic_heart": "Heart — American English · Female (synthetic reference)",
         "synthetic_michael": "Michael — American English · Male (synthetic reference)",
@@ -41,9 +42,12 @@ VOICE_CATALOG = {
 }
 
 
+CLONE_BACKENDS = {"chatterbox", "qwen3-tts-base"}
+
+
 class SpeechRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    model: Literal["qwen3-tts", "chatterbox"]
+    model: Literal["qwen3-tts", "qwen3-tts-base", "chatterbox"]
     input: str = Field(min_length=1, max_length=12000)
     voice: str
     response_format: Literal["mp3", "wav", "pcm"] = "mp3"
@@ -51,9 +55,9 @@ class SpeechRequest(BaseModel):
 
 
 def validate_voice(request, store=None):
-    if request.model == "chatterbox" and request.voice.startswith("clone_") and store:
+    if request.model in CLONE_BACKENDS and request.voice.startswith("clone_") and store:
         try:
-            store.get(request.voice)
+            store.get(request.voice, backend=request.model)
         except ValueError as exc:
             raise HTTPException(400, "Saved voice was not found") from exc
     elif request.voice not in VOICE_CATALOG[request.model]:
@@ -118,6 +122,13 @@ class Engine:
                 "lang_code": "en",
                 "conds": self.conditionals[request.voice],
                 "exaggeration": 0.1,
+            }
+        if request.model == "qwen3-tts-base":
+            reference = self.store.get(request.voice, backend=request.model)
+            kwargs = {
+                "lang_code": "english",
+                "ref_audio": str(self.store.directory(request.voice) / "reference.wav"),
+                "ref_text": reference["reference_text"],
             }
         chunks = []
         try:
@@ -218,8 +229,20 @@ def create_app(settings, key, engine=None):
         if backend not in VOICE_CATALOG:
             raise HTTPException(404, "Unknown speech model")
         return {
-            "supported": backend == "chatterbox",
-            "reason": None if backend == "chatterbox" else "preset_only",
+            "supported": backend in CLONE_BACKENDS
+            and (
+                backend != "qwen3-tts-base"
+                or bool(settings.get("models", {}).get(backend))
+            ),
+            "requires_reference_text": backend == "qwen3-tts-base",
+            "reason": (
+                "unavailable"
+                if backend == "qwen3-tts-base"
+                and not settings.get("models", {}).get(backend)
+                else None
+            )
+            if backend in CLONE_BACKENDS
+            else "preset_only",
             "min_seconds": 5,
             "max_seconds": 30,
             "max_bytes": MAX_BYTES,
@@ -228,24 +251,32 @@ def create_app(settings, key, engine=None):
         }
 
     def require_cloning(backend):
-        if backend != "chatterbox":
+        if backend not in CLONE_BACKENDS:
             raise HTTPException(
                 400, "This model uses preset voices and does not support cloning"
             )
 
+        if backend == "qwen3-tts-base" and not settings.get("models", {}).get(backend):
+            raise HTTPException(503, "Qwen Base has not been provisioned")
+
     @app.get("/v1/{backend}/audio/clones", dependencies=[Depends(auth)])
     def clones(backend: str, archived: bool = False):
         require_cloning(backend)
-        return store.list(archived)
+        return store.list(archived, backend=backend)
 
     @app.post("/v1/{backend}/audio/clones", dependencies=[Depends(auth)])
     async def create_clone(
-        backend: str, name: str = Form(...), file: UploadFile = File(...)
+        backend: str,
+        name: str = Form(...),
+        file: UploadFile = File(...),
+        reference_text: str = Form(""),
     ):
         require_cloning(backend)
         try:
             data = await file.read(MAX_BYTES + 1)
-            return await asyncio.to_thread(store.create, name, data)
+            return await asyncio.to_thread(
+                store.create, name, data, backend, reference_text
+            )
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
         finally:
@@ -258,7 +289,7 @@ def create_app(settings, key, engine=None):
     def archive_clone(backend: str, voice_id: str, request: ArchiveRequest):
         require_cloning(backend)
         try:
-            return store.archive(voice_id, request.archived)
+            return store.archive(voice_id, request.archived, backend=backend)
         except ValueError as exc:
             raise HTTPException(404, "Saved voice was not found") from exc
 
@@ -268,7 +299,7 @@ def create_app(settings, key, engine=None):
     def clone_reference(backend: str, voice_id: str):
         require_cloning(backend)
         try:
-            store.get(voice_id)
+            store.get(voice_id, backend=backend)
             return Response(
                 (store.directory(voice_id) / "reference.wav").read_bytes(),
                 media_type="audio/wav",
@@ -307,9 +338,9 @@ def create_app(settings, key, engine=None):
         saved = (
             [
                 {"id": v["id"], "name": v["name"] + " — Cloned voice · English"}
-                for v in store.list()
+                for v in store.list(backend=backend)
             ]
-            if backend == "chatterbox"
+            if backend in CLONE_BACKENDS
             else []
         )
         return {

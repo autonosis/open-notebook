@@ -22,6 +22,12 @@ vi.mock('@/lib/hooks/use-voice-cloning', () => ({
     data: [
       { id: 'm:c', name: 'chatterbox', supported: true },
       { id: 'm:k', name: 'kokoro', supported: false },
+      {
+        id: 'm:q',
+        name: 'qwen3-tts-base',
+        supported: true,
+        requires_reference_text: true,
+      },
     ],
     isLoading: false,
   }),
@@ -235,4 +241,32 @@ test('reference playback decodes binary audio without creating file URLs', async
     screen.getByRole('button', { name: 'voiceCloning.stopPlayback' }),
   )
   expect(close).toHaveBeenCalled()
+})
+
+test('Qwen Base requires matching reference words and sends them with the recording', async () => {
+  render(<VoiceCloningTab />)
+  fireEvent.change(screen.getByLabelText('podcasts.voiceModel'), {
+    target: { value: 'm:q' },
+  })
+  fireEvent.change(screen.getByLabelText('voiceCloning.name'), {
+    target: { value: 'Qwen voice' },
+  })
+  const file = new File(['audio'], 'reference.wav')
+  fireEvent.change(screen.getByLabelText('voiceCloning.reference'), {
+    target: { files: [file] },
+  })
+  expect(
+    screen.getByRole('button', { name: 'voiceCloning.save' }),
+  ).toHaveProperty('disabled', true)
+  fireEvent.change(screen.getByLabelText('voiceCloning.referenceText'), {
+    target: { value: 'The exact reference words.' },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'voiceCloning.save' }))
+  await waitFor(() =>
+    expect(state.save).toHaveBeenCalledWith({
+      name: 'Qwen voice',
+      file,
+      referenceText: 'The exact reference words.',
+    }),
+  )
 })

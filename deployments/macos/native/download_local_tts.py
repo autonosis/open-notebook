@@ -12,6 +12,10 @@ MODELS = {
         "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
         "41d3337e8b7f2843a75841595fc14e4b9a7a4b96",
     ),
+    "qwen3-tts-base": (
+        "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+        "e7dd0585652209fa0d7783659aad4e8a324de11c",
+    ),
     "chatterbox": (
         "mlx-community/chatterbox-multilingual-v3",
         "03565773edd72e949572557597af8063bb49a18a",
@@ -31,9 +35,11 @@ def main():
     from huggingface_hub import snapshot_download
     from huggingface_hub.constants import HF_HUB_CACHE
 
-    records = []
+    manifest = root / "models/native-tts/manifest.json"
+    records = json.loads(manifest.read_text()) if manifest.exists() else []
     for name, (repo, revision) in MODELS.items():
         path = snapshot_download(repo, revision=revision)
+        records = [r for r in records if r["name"] != name]
         records.append({"name": name, "repo": repo, "revision": revision, "path": path})
     snapshot_download(
         "mlx-community/S3TokenizerV2",

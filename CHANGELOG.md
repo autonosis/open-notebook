@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Qwen3-TTS Base now supports local reference-audio cloning with matching reference transcripts, separate voice libraries, auditions and podcast speaker selection; CustomVoice presets and Kokoro defaults are preserved.
 - Podcasts has a local Voice cloning workspace for recording/uploading references, saved Chatterbox voices, auditions, prefilled speaker profiles, and reversible archival; preset-only models clearly report their limitations.
 - Podcast transcripts support saved editable drafts and audio-only revised episodes, with unchanged clip reuse, preserved originals, and listening-oriented generation guidance for formulas and acronyms.
 - macOS deployment can serve optional Qwen3-TTS and Chatterbox voices locally through a persistent, authenticated Metal adapter with catalogs, serialized inference and idle unloading; Kokoro remains the default.

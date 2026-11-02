@@ -518,7 +518,10 @@ async def cloning_voices(model_id: str, archived: bool = False):
 
 @router.post("/podcasts/voice-cloning/voices")
 async def create_cloned_voice(
-    model_id: str = Form(...), name: str = Form(...), file: UploadFile = File(...)
+    model_id: str = Form(...),
+    name: str = Form(...),
+    file: UploadFile = File(...),
+    reference_text: str = Form(""),
 ):
     from api.voice_cloning_service import MAX_BYTES, request
     from open_notebook.exceptions import InvalidInputError
@@ -534,7 +537,7 @@ async def create_cloned_voice(
                 model_id,
                 "POST",
                 "clones",
-                data={"name": name},
+                data={"name": name, "reference_text": reference_text},
                 files={"file": ("reference", audio, "application/octet-stream")},
             )
         ).json()

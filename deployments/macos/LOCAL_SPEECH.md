@@ -1,6 +1,6 @@
 # Optional native Qwen and Chatterbox speech
 
-Kokoro remains the default. Optional `qwen3-tts` and `chatterbox` models are registered as `openai_compatible` speech providers. No existing notebook, model, speaker profile, episode profile or language-model default is replaced. Piper is not registered.
+Kokoro remains the default. Optional `qwen3-tts`, `qwen3-tts-base` and `chatterbox` models are registered as `openai_compatible` speech providers. No existing notebook, model, speaker profile, episode profile or language-model default is replaced. Piper is not registered.
 
 Podcasts → Profiles has two optional speaker pairs and matching episode profiles:
 
@@ -9,7 +9,7 @@ Podcasts → Profiles has two optional speaker pairs and matching episode profil
 | Qwen local research | Qwen English pair | Ryan / Aiden |
 | Chatterbox local research | Chatterbox English pair | Heart / Michael, synthetic references |
 
-Select the episode profile when generating a podcast, or edit any speaker profile to select its voice model. The voice dropdown lists nine named Qwen presets or two Chatterbox references; inline auditions use the selected model. Qwen's multilingual presets are exposed, but this integration's acceptance tests use English. Chatterbox also supports saved reference voices through Podcasts → Voice cloning. See [VOICE_CLONING.md](VOICE_CLONING.md) for recording/upload, auditions, profile handoff and private storage. The installed Qwen CustomVoice variant remains preset-only.
+Select the episode profile when generating a podcast, or edit any speaker profile to select its voice model. The voice dropdown lists nine named Qwen presets or two Chatterbox references; inline auditions use the selected model. Qwen's multilingual presets are exposed, but this integration's acceptance tests use English. Chatterbox also supports saved reference voices through Podcasts → Voice cloning. See [VOICE_CLONING.md](VOICE_CLONING.md) for recording/upload, auditions, profile handoff and private storage. Qwen Base is registered separately for cloning with reference audio and exact reference text. The existing Qwen CustomVoice variant remains preset-only.
 
 ## Architecture and persistence
 
@@ -18,6 +18,7 @@ Native macOS LaunchAgent `local.open-notebook.tts` runs the tracked `deployments
 The service binds **127.0.0.1:11438**, requires a private bearer token for inference/catalog APIs, and uses the native MLX Metal runtime. The Docker backend retains its internal network. Its existing gateway bridges internal port 11438 to the host; that gateway port is not published. Models use separate base URLs so Esperanto can retrieve the appropriate voice catalog without needing a model query argument:
 
 - `http://gateway:11438/v1/qwen3-tts`
+- `http://gateway:11438/v1/qwen3-tts-base`
 - `http://gateway:11438/v1/chatterbox`
 
 Routes: `GET /models`, `GET /audio/voices`, `POST /audio/speech` relative to each base URL. Speech accepts standard `model`, `voice`, `input`, `response_format` and optional `speed`. MP3, WAV and 24 kHz mono PCM are supported. Invalid voices/model paths/unsupported formats are rejected. Reference uploads use the separate authenticated clone endpoints described in VOICE_CLONING.md. WAV/MP3 encode before response; this is buffered speech for the podcast library, not a streaming client API. Tempo changes use local FFmpeg.

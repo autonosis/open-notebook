@@ -36,13 +36,16 @@ class VoiceStore:
                     return candidate
         raise ValueError("Saved voice was not found")
 
-    def get(self, voice_id):
+    def get(self, voice_id, backend=None):
         try:
-            return json.loads((self.directory(voice_id) / "voice.json").read_text())
+            metadata = json.loads((self.directory(voice_id) / "voice.json").read_text())
+            if backend and metadata.get("backend", "chatterbox") != backend:
+                raise ValueError("This saved voice belongs to a different speech model")
+            return metadata
         except FileNotFoundError as exc:
             raise ValueError("Saved voice was not found") from exc
 
-    def list(self, archived=False):
+    def list(self, archived=False, backend=None):
         if not self.root.exists():
             return []
         with self.lock:
@@ -54,7 +57,12 @@ class VoiceStore:
                 and (p / "voice.json").is_file()
             ]
         return sorted(
-            (r for r in rows if archived or not r["archived"]),
+            (
+                r
+                for r in rows
+                if (archived or not r["archived"])
+                and (not backend or r.get("backend", "chatterbox") == backend)
+            ),
             key=lambda r: r["created"],
             reverse=True,
         )
@@ -70,16 +78,25 @@ class VoiceStore:
         finally:
             Path(name).unlink(missing_ok=True)
 
-    def archive(self, voice_id, archived):
+    def archive(self, voice_id, archived, backend=None):
         with self.lock:
-            meta = self.get(voice_id)
+            meta = self.get(voice_id, backend)
             meta["archived"] = archived
             self.write(self.directory(voice_id), meta)
             return meta
 
-    def create(self, name, data):
+    def create(self, name, data, backend="chatterbox", reference_text=""):
         import numpy as np
 
+        if backend not in {"chatterbox", "qwen3-tts-base"}:
+            raise ValueError("This speech model does not support cloning")
+        reference_text = reference_text.strip()
+        if len(reference_text) > 4000 or (
+            backend == "qwen3-tts-base" and not reference_text
+        ):
+            raise ValueError(
+                "Qwen Base needs the exact words spoken in the reference recording (up to 4000 characters)"
+            )
         name = name.strip()
         if not name or len(name) > 80:
             raise ValueError("Enter a voice name of 1–80 characters")
@@ -144,7 +161,8 @@ class VoiceStore:
                 "duration_s": round(duration, 2),
                 "created": time.time(),
                 "archived": False,
-                "backend": "chatterbox",
+                "backend": backend,
+                "reference_text": reference_text,
                 "sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
             }
             with self.lock:

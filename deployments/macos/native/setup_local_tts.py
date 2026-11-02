@@ -22,8 +22,9 @@ def main():
     source = Path(__file__).resolve().parent
     model_records = json.loads((root / "models/native-tts/manifest.json").read_text())
     models = {
-        name: next(x["path"] for x in model_records if marker in x.get("repo", ""))
-        for name, marker in [("qwen3-tts", "Qwen3"), ("chatterbox", "chatterbox")]
+        r["name"]: r["path"]
+        for r in model_records
+        if r["name"] in {"qwen3-tts", "qwen3-tts-base", "chatterbox"}
     }
     for path in models.values():
         if not Path(path, "config.json").is_file():
@@ -139,6 +140,7 @@ def main():
     existing_models = api.call("GET", "/models")
     for name, credential_name in [
         ("qwen3-tts", "Local Qwen Speech"),
+        ("qwen3-tts-base", "Local Qwen Base Speech"),
         ("chatterbox", "Local Chatterbox Speech"),
     ]:
         base = f"http://gateway:11438/v1/{name}"
