@@ -45,11 +45,14 @@ class SourceProcessingOutput(CommandOutput):
     "process_source",
     app="open_notebook",
     retry={
-        "max_attempts": 15,  # Handle deep queues (workaround for SurrealDB v2 transaction conflicts)
+        "max_attempts": 3,  # Handle deep queues (workaround for SurrealDB v2 transaction conflicts)
         "wait_strategy": "exponential_jitter",
         "wait_min": 1,
         "wait_max": 120,  # Allow queue to drain
         "stop_on": [
+            NameError,
+            TypeError,
+            AttributeError,
             ValueError,
             ConfigurationError,
             ContextLengthExceededError,
@@ -69,7 +72,19 @@ async def process_source_command(
     """
     start_time = time.time()
     from open_notebook.observability import event
-    event(input_data.source_id, "Starting extraction", root_command=str(input_data.execution_context.command_id), started_at=start_time, jobs=[], chunks_done=None, chunks_total=None, transformation=None)
+
+    event(
+        input_data.source_id,
+        "Starting extraction",
+        root_command=str(input_data.execution_context.command_id),
+        started_at=start_time,
+        error=None,
+        cached_pages=0,
+        jobs=[],
+        chunks_done=None,
+        chunks_total=None,
+        transformation=None,
+    )
 
     try:
         logger.info(f"Starting source processing for source: {input_data.source_id}")
@@ -171,6 +186,7 @@ async def process_source_command(
         )
         raise
     except ValueError as e:
+        event(input_data.source_id, "Processing failed", error=type(e).__name__)
         # Validation errors are permanent failures. Re-raise so surreal-commands
         # marks the job as `failed` (stop_on=[ValueError] already prevents
         # pointless retries). Returning a success=False result instead marks the
@@ -181,7 +197,20 @@ async def process_source_command(
         raise
     except Exception as e:
         # Transient failure - will be retried (surreal-commands logs final failure)
-        logger.debug(f"Transient error processing source {input_data.source_id}: {e}")
+        import traceback
+
+        frame = traceback.extract_tb(e.__traceback__)[-1]
+        event(
+            input_data.source_id,
+            "Processing attempt failed",
+            error=type(e).__name__,
+            error_location=f"{frame.name}:{frame.lineno}",
+        )
+        logger.error(
+            "Source processing attempt failed: source={} exception_type={}",
+            input_data.source_id,
+            type(e).__name__,
+        )
         raise
 
 
