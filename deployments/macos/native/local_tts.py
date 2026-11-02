@@ -17,9 +17,10 @@ from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field
+from voice_clones import MAX_BYTES, VoiceStore
 
 VOICE_CATALOG = {
     "qwen3-tts": {
@@ -49,8 +50,13 @@ class SpeechRequest(BaseModel):
     speed: float = Field(default=1, ge=0.5, le=2)
 
 
-def validate_voice(request):
-    if request.voice not in VOICE_CATALOG[request.model]:
+def validate_voice(request, store=None):
+    if request.model == "chatterbox" and request.voice.startswith("clone_") and store:
+        try:
+            store.get(request.voice)
+        except ValueError as exc:
+            raise HTTPException(400, "Saved voice was not found") from exc
+    elif request.voice not in VOICE_CATALOG[request.model]:
         raise HTTPException(400, "Select a voice from this model's catalog.")
     if not request.input.strip():
         raise HTTPException(400, "Speech text must not be blank.")
@@ -61,6 +67,7 @@ class Engine:
 
     def __init__(self, settings):
         self.settings = settings
+        self.store = VoiceStore(settings)
         self.model = None
         self.name = None
         self.last_use = time.monotonic()
@@ -98,9 +105,12 @@ class Engine:
         kwargs = {"lang_code": "auto", "voice": request.voice}
         if request.model == "chatterbox":
             if request.voice not in self.conditionals:
-                ref, sr = sf.read(
-                    self.settings["references"][request.voice], dtype="float32"
+                reference = (
+                    (self.store.directory(request.voice) / "reference.wav")
+                    if request.voice.startswith("clone_")
+                    else self.settings["references"][request.voice]
                 )
+                ref, sr = sf.read(reference, dtype="float32")
                 self.conditionals[request.voice] = self.model.prepare_conditionals(
                     mx.array(ref), sr, exaggeration=0.1
                 )
@@ -168,6 +178,7 @@ def create_app(settings, key, engine=None):
     if not key:
         raise ValueError("A local TTS API key is required")
     engine = engine or Engine(settings)
+    store = getattr(engine, "store", None) or VoiceStore(settings)
     executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mlx-speech")
     gate = asyncio.Semaphore(2)
     log = logging.getLogger("local_tts")
@@ -190,6 +201,81 @@ def create_app(settings, key, engine=None):
         executor.shutdown(wait=True)
 
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+
+    @app.middleware("http")
+    async def limit_reference_upload(request, call_next):
+        if request.method == "POST" and request.url.path.endswith("/audio/clones"):
+            try:
+                size = int(request.headers.get("content-length", "-1"))
+            except ValueError:
+                size = -1
+            if size < 0 or size > MAX_BYTES + 65536:
+                return Response(status_code=413, content="Audio upload exceeds 10 MB")
+        return await call_next(request)
+
+    @app.get("/v1/{backend}/audio/clone-capabilities", dependencies=[Depends(auth)])
+    def clone_capabilities(backend: str):
+        if backend not in VOICE_CATALOG:
+            raise HTTPException(404, "Unknown speech model")
+        return {
+            "supported": backend == "chatterbox",
+            "reason": None if backend == "chatterbox" else "preset_only",
+            "min_seconds": 5,
+            "max_seconds": 30,
+            "max_bytes": MAX_BYTES,
+            "local": True,
+            "language": "en",
+        }
+
+    def require_cloning(backend):
+        if backend != "chatterbox":
+            raise HTTPException(
+                400, "This model uses preset voices and does not support cloning"
+            )
+
+    @app.get("/v1/{backend}/audio/clones", dependencies=[Depends(auth)])
+    def clones(backend: str, archived: bool = False):
+        require_cloning(backend)
+        return store.list(archived)
+
+    @app.post("/v1/{backend}/audio/clones", dependencies=[Depends(auth)])
+    async def create_clone(
+        backend: str, name: str = Form(...), file: UploadFile = File(...)
+    ):
+        require_cloning(backend)
+        try:
+            data = await file.read(MAX_BYTES + 1)
+            return await asyncio.to_thread(store.create, name, data)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        finally:
+            await file.close()
+
+    class ArchiveRequest(BaseModel):
+        archived: bool
+
+    @app.patch("/v1/{backend}/audio/clones/{voice_id}", dependencies=[Depends(auth)])
+    def archive_clone(backend: str, voice_id: str, request: ArchiveRequest):
+        require_cloning(backend)
+        try:
+            return store.archive(voice_id, request.archived)
+        except ValueError as exc:
+            raise HTTPException(404, "Saved voice was not found") from exc
+
+    @app.get(
+        "/v1/{backend}/audio/clones/{voice_id}/reference", dependencies=[Depends(auth)]
+    )
+    def clone_reference(backend: str, voice_id: str):
+        require_cloning(backend)
+        try:
+            store.get(voice_id)
+            return Response(
+                (store.directory(voice_id) / "reference.wav").read_bytes(),
+                media_type="audio/wav",
+                headers={"Cache-Control": "no-store"},
+            )
+        except (ValueError, FileNotFoundError) as exc:
+            raise HTTPException(404, "Saved voice was not found") from exc
 
     @app.get("/health")
     def health():
@@ -218,8 +304,17 @@ def create_app(settings, key, engine=None):
     def voices(backend: str):
         if backend not in VOICE_CATALOG:
             raise HTTPException(404, "Unknown speech model")
+        saved = (
+            [
+                {"id": v["id"], "name": v["name"] + " — Cloned voice · English"}
+                for v in store.list()
+            ]
+            if backend == "chatterbox"
+            else []
+        )
         return {
-            "voices": [
+            "voices": saved
+            + [
                 {"id": voice, "name": name}
                 for voice, name in VOICE_CATALOG[backend].items()
             ]
@@ -229,7 +324,7 @@ def create_app(settings, key, engine=None):
     async def speech(backend: str, request: SpeechRequest):
         if backend != request.model:
             raise HTTPException(400, "Model does not match the configured endpoint")
-        validate_voice(request)
+        validate_voice(request, store)
         if gate.locked():
             raise HTTPException(
                 429, "Speech service is busy; retry after the current requests finish."

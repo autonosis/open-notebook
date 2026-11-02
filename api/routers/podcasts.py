@@ -1,7 +1,7 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse, Response
 from loguru import logger
 from pydantic import BaseModel, Field
 
@@ -495,4 +495,88 @@ async def regenerate_episode_audio(episode_id: str, request: AudioRevisionReques
 
     return await regenerate_audio(
         episode_id, request.expected_revision, request.reuse_unchanged
+    )
+
+
+@router.get("/podcasts/voice-cloning/models")
+async def cloning_models():
+    from api.voice_cloning_service import models
+
+    return await models()
+
+
+@router.get("/podcasts/voice-cloning/voices")
+async def cloning_voices(model_id: str, archived: bool = False):
+    from api.voice_cloning_service import request
+
+    return (
+        await request(
+            model_id, "GET", "clones", params={"archived": str(archived).lower()}
+        )
+    ).json()
+
+
+@router.post("/podcasts/voice-cloning/voices")
+async def create_cloned_voice(
+    model_id: str = Form(...), name: str = Form(...), file: UploadFile = File(...)
+):
+    from api.voice_cloning_service import MAX_BYTES, request
+    from open_notebook.exceptions import InvalidInputError
+
+    try:
+        audio = await file.read(MAX_BYTES + 1)
+        if len(audio) > MAX_BYTES:
+            raise InvalidInputError("Upload an audio sample up to 10 MB")
+        if not name.strip() or len(name.strip()) > 80:
+            raise InvalidInputError("Enter a voice name of 1–80 characters")
+        return (
+            await request(
+                model_id,
+                "POST",
+                "clones",
+                data={"name": name},
+                files={"file": ("reference", audio, "application/octet-stream")},
+            )
+        ).json()
+    finally:
+        await file.close()
+
+
+class CloneArchiveRequest(BaseModel):
+    archived: bool
+
+
+@router.patch("/podcasts/voice-cloning/voices/{voice_id}")
+async def archive_cloned_voice(voice_id: str, model_id: str, body: CloneArchiveRequest):
+    from api.voice_cloning_service import request
+
+    return (
+        await request(
+            model_id,
+            "PATCH",
+            "clones/" + valid_clone_id(voice_id),
+            json=body.model_dump(),
+        )
+    ).json()
+
+
+def valid_clone_id(voice_id):
+    import re
+
+    from open_notebook.exceptions import InvalidInputError
+
+    if not re.fullmatch(r"clone_[a-f0-9]{32}", voice_id):
+        raise InvalidInputError("Invalid saved voice")
+    return voice_id
+
+
+@router.get("/podcasts/voice-cloning/voices/{voice_id}/reference")
+async def cloned_voice_reference(voice_id: str, model_id: str):
+    from api.voice_cloning_service import request
+
+    response = await request(
+        model_id, "GET", "clones/" + valid_clone_id(voice_id) + "/reference"
+    )
+    return Response(
+        response.content, media_type="audio/wav", headers={"Cache-Control": "no-store"}
     )

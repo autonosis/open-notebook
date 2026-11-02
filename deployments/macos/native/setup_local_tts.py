@@ -49,6 +49,7 @@ def main():
             {
                 "models": models,
                 "references": refs,
+                "clones_dir": str(root / "data/voice_clones"),
                 "idle_seconds": 300,
                 "api_key_file": str(key_file),
                 "ffmpeg": shutil.which("ffmpeg"),
